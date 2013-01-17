@@ -601,6 +601,13 @@ class H2O(object):
                 raise Exception(emsg)
             count += 1
         return r
+    
+    def kmeans(self, response, key, k, epsilon, **kwargs):
+        return self.__check_request(
+            requests.get(
+                url=self.__url('KMeans.json', new=True),
+                timeout=300,
+                params={"source_key": key, "k": k}))
 
     def parse(self, key, key2=None, timeoutSecs=300, retryDelaySecs=0.2, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)

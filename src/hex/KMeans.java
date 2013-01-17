@@ -1,24 +1,60 @@
 package hex;
 
+import java.util.*;
+
 import water.*;
 
+/**
+ * Scalable K-Means++ (KMeans||)<br>
+ * http://theory.stanford.edu/~sergei/papers/vldb12-kmpar.pdf<br>
+ * http://www.youtube.com/watch?v=cigXAxV3XcY
+ */
 public abstract class KMeans {
+  private static final boolean DEBUG = false;
 
-  static public double[][] run(ValueArray va, int k, double epsilon, int... cols) {
-    double[][] clusters = new double[k][];
+  public static class Res extends Iced {
+    public double[][] _clusters;
+    public int        _iteration;
+  }
+
+  static public void run(Key dest, ValueArray va, int k, double epsilon, int... cols) {
+    final Res res = new Res();
+
+    // Initialize first cluster to first row
+    double[][] clusters = new double[1][];
+    clusters[0] = new double[cols.length];
     AutoBuffer bits = va.getChunk(0);
+    for( int c = 0; c < cols.length; c++ )
+      clusters[0][c] = va.datad(bits, 0, va._cols[cols[c]]);
 
-    // Initialize clusters to first rows
-    // TODO proper initialization phase
-    for( int row = 0; row < clusters.length; row++ ) {
-      clusters[row] = new double[cols.length];
+    // TODO normalize data
 
-      for( int c = 0; c < cols.length; c++ )
-        clusters[row][c] = va.datad(bits, row, va._cols[cols[c]]);
+    for( int i = 0; i < 5; i++ ) {
+      // Sum squares distances to clusters
+      Sqr sqr = new Sqr();
+      sqr._arykey = va._key;
+      sqr._cols = cols;
+      sqr._clusters = clusters;
+      sqr.invoke(va._key);
+
+      // Sample with probability inverse to square distance
+      Sampler sampler = new Sampler();
+      sampler._arykey = va._key;
+      sampler._cols = cols;
+      sampler._clusters = clusters;
+      sampler._sqr = sqr._sqr;
+      sampler._probability = k * 3; // Over-sampling
+      sampler.invoke(va._key);
+      clusters = Sampler.merge(clusters, sampler._newClusters);
+
+      res._iteration++;
+      UKV.put(dest, res);
     }
 
+    clusters = recluster(clusters, k);
+
     for( ;; ) {
-      KMeansTask task = new KMeansTask();
+      Lloyds task = new Lloyds();
       task._arykey = va._key;
       task._cols = cols;
       task._clusters = clusters;
@@ -36,23 +72,129 @@ public abstract class KMeans {
         }
       }
 
-      if( !moved ) break;
-    }
+      res._iteration++;
+      if( !moved )
+        res._clusters = task._clusters;
+      UKV.put(dest, res);
 
-    return clusters;
+      if( !moved )
+        break;
+    }
   }
 
-  public static class KMeansTask extends MRTask {
+  public static class Sqr extends MRTask {
     Key        _arykey;
     int[]      _cols;
     double[][] _clusters;
 
-    // Sums and counts for each cluster
+    // Result
+    double     _sqr;
+
+    @Override
+    public void map(Key key) {
+      if( DEBUG )
+        System.out.println("sqr map " + key + ": " + this);
+
+      assert key.home();
+      ValueArray va = ValueArray.value(DKV.get(_arykey));
+      AutoBuffer bits = va.getChunk(key);
+      int rows = bits.remaining() / va._rowsize;
+      double[] values = new double[_cols.length];
+
+      for( int row = 0; row < rows; row++ ) {
+        for( int column = 0; column < _cols.length; column++ )
+          values[column] = va.datad(bits, row, va._cols[_cols[column]]);
+
+        _sqr += minSqr(_clusters, _clusters.length, values);
+      }
+    }
+
+    @Override
+    public void reduce(DRemoteTask rt) {
+      if( DEBUG )
+        System.out.println("sqr reduce " + this);
+
+      Sqr task = (Sqr) rt;
+      _sqr += task._sqr;
+    }
+  }
+
+  public static class Sampler extends MRTask {
+    Key        _arykey;
+    int[]      _cols;
+    double[][] _clusters;
+    double     _sqr;
+    double     _probability;
+
+    // Result
+    double[][] _newClusters;
+
+    @Override
+    public void map(Key key) {
+      if( DEBUG )
+        System.out.println("sampler map " + key + ": " + this + ", sqr: " + _sqr);
+
+      assert key.home();
+      ValueArray va = ValueArray.value(DKV.get(_arykey));
+      AutoBuffer bits = va.getChunk(key);
+      int rows = bits.remaining() / va._rowsize;
+      double[] values = new double[_cols.length];
+      ArrayList<double[]> list = new ArrayList<double[]>();
+      Random rand = new Random();
+
+      for( int row = 0; row < rows; row++ ) {
+        for( int column = 0; column < _cols.length; column++ )
+          values[column] = va.datad(bits, row, va._cols[_cols[column]]);
+
+        double sqr = minSqr(_clusters, _clusters.length, values);
+
+        if( _probability * sqr > rand.nextDouble() * _sqr ) {
+          if( DEBUG )
+            System.out.println("sampled: " + Arrays.toString(values));
+
+          list.add(values.clone());
+        }
+      }
+
+      _newClusters = new double[list.size()][];
+      list.toArray(_newClusters);
+    }
+
+    @Override
+    public void reduce(DRemoteTask rt) {
+      if( DEBUG )
+        System.out.println("sampler reduce " + this);
+
+      Sampler task = (Sampler) rt;
+
+      if( _newClusters != null )
+        _newClusters = merge(_newClusters, task._newClusters);
+      else
+        _newClusters = task._newClusters;
+    }
+
+    static double[][] merge(double[][] a, double[][] b) {
+      double[][] res = new double[a.length + b.length][];
+      System.arraycopy(a, 0, res, 0, a.length);
+      System.arraycopy(b, 0, res, a.length, b.length);
+      return res;
+    }
+  }
+
+  public static class Lloyds extends MRTask {
+    Key        _arykey;
+    int[]      _cols;
+    double[][] _clusters;
+
+    // Result - sums and counts for each cluster
     double[][] _sums;
     int[]      _counts;
 
     @Override
     public void map(Key key) {
+      if( DEBUG )
+        System.out.println("KMeans map " + key + ": " + this);
+
       assert key.home();
       ValueArray va = ValueArray.value(DKV.get(_arykey));
       AutoBuffer bits = va.getChunk(key);
@@ -60,11 +202,8 @@ public abstract class KMeans {
       double[] values = new double[_cols.length];
 
       // Create result arrays
-      _sums = new double[_clusters.length][];
+      _sums = new double[_clusters.length][_cols.length];
       _counts = new int[_clusters.length];
-
-      for( int c = 0; c < _clusters.length; c++ )
-        _sums[c] = new double[_cols.length];
 
       // Find closest cluster for each row
       for( int row = 0; row < rows; row++ ) {
@@ -81,30 +220,17 @@ public abstract class KMeans {
       }
     }
 
-    public static int closest(double[][] clusters, double[] point) {
-      int min = 0;
-      double minSqr = Double.MAX_VALUE;
-
-      for( int cluster = 0; cluster < clusters.length; cluster++ ) {
-        double sqr = 0;
-
-        for( int column = 0; column < point.length; column++ ) {
-          double delta = point[column] - clusters[cluster][column];
-          sqr += delta * delta;
-        }
-
-        if( sqr < minSqr ) {
-          min = cluster;
-          minSqr = sqr;
-        }
-      }
-
-      return min;
-    }
-
     @Override
     public void reduce(DRemoteTask rt) {
-      KMeansTask task = (KMeansTask) rt;
+      if( DEBUG )
+        System.out.println("KMeans reduce " + this);
+
+      Lloyds task = (Lloyds) rt;
+
+      if( _sums == null ) {
+        _sums = new double[_clusters.length][_cols.length];
+        _counts = new int[_clusters.length];
+      }
 
       for( int cluster = 0; cluster < _clusters.length; cluster++ ) {
         for( int column = 0; column < _cols.length; column++ )
@@ -113,5 +239,68 @@ public abstract class KMeans {
         _counts[cluster] += task._counts[cluster];
       }
     }
+  }
+
+  public static double minSqr(double[][] clusters, int clusterCount, double[] point) {
+    double minSqr = Double.MAX_VALUE;
+
+    for( int cluster = 0; cluster < clusterCount; cluster++ ) {
+      double sqr = 0;
+
+      for( int column = 0; column < point.length; column++ ) {
+        double delta = point[column] - clusters[cluster][column];
+        sqr += delta * delta;
+      }
+
+      if( sqr < minSqr )
+        minSqr = sqr;
+    }
+
+    return minSqr;
+  }
+
+  public static int closest(double[][] clusters, double[] point) {
+    int min = 0;
+    double minSqr = Double.MAX_VALUE;
+
+    for( int cluster = 0; cluster < clusters.length; cluster++ ) {
+      double sqr = 0;
+
+      for( int column = 0; column < point.length; column++ ) {
+        double delta = point[column] - clusters[cluster][column];
+        sqr += delta * delta;
+      }
+
+      if( sqr < minSqr ) {
+        min = cluster;
+        minSqr = sqr;
+      }
+    }
+
+    return min;
+  }
+
+  // KMeans++ re-clustering
+  public static double[][] recluster(double[][] points, int k) {
+    double[][] res = new double[k][];
+    res[0] = points[0];
+    int count = 1;
+    Random rand = new Random();
+
+    while( count < res.length ) {
+      double sum = 0;
+      for( int i = 0; i < points.length; i++ )
+        sum += minSqr(res, count, points[i]);
+
+      double r = rand.nextDouble() * sum;
+      for( int i = 0; i < points.length; i++ ) {
+        if( r < minSqr(res, count, points[i]) ) {
+          res[count++] = points[i];
+          break;
+        }
+      }
+    }
+
+    return res;
   }
 }
