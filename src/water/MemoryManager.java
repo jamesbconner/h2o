@@ -91,7 +91,7 @@ public abstract class MemoryManager {
   public static void set_goals( String msg, boolean oom ) {
     // Our best guess of free memory, as of the last GC cycle
     long freeHeap = MEM_MAX - HEAP_USED_AT_LAST_GC;
-    assert freeHeap > 0 : "I am really confused about the heap usage";
+    assert freeHeap >= 0 : "I am really confused about the heap usage";
     // Current memory held in the K/V store.
     long cacheUsage = myHisto.histo(false)._cached;
 
@@ -209,7 +209,7 @@ public abstract class MemoryManager {
           try { _lock.wait(1000); } catch (InterruptedException ex) { }
         }
       }
-      try { 
+      try {
         switch( type ) {
         case  1: return new byte   [elems];
         case  2: return new short  [elems];
@@ -231,10 +231,10 @@ public abstract class MemoryManager {
   public static float  [] malloc4f(int size) { return (float  [])malloc(size,size*4,-4,null,0); }
   public static int    [] malloc4 (int size) { return (int    [])malloc(size,size*4, 4,null,0); }
   public static boolean[] mallocZ (int size) { return (boolean[])malloc(size,size*1, 0,null,0); }
-  public static byte[] arrayCopyOfRange(byte[] orig, int from, int sz) { 
+  public static byte[] arrayCopyOfRange(byte[] orig, int from, int sz) {
     return (byte[]) malloc(sz,(sz-from),-1,orig,from);
   }
-  public static byte[] arrayCopyOf( byte[] orig, int sz) { 
+  public static byte[] arrayCopyOf( byte[] orig, int sz) {
     return arrayCopyOfRange(orig,0,sz);
   }
 }
