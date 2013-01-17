@@ -17,7 +17,8 @@ def define_params():
         # 'norm': [None,'L1', 'L2'],
         # always need L1 or L2? to avoid Gram Matrix SPD
         'norm': ['L1', 'L2'],
-        'glm_lambda': [None, 1e-4,1,10,1e4],
+        'lambda1': [None, 1e-4,1,10,1e4],
+        'lambda2': [None, 1e-4,1,10,1e4],
         'rho': [None, 1e-4,1,10,1e4],
         'alpha': [None, -1,0,1.8],
         # new?
@@ -41,7 +42,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_loop_random_param_covtype(self):
+    def test_GLM_params_rand2(self):
         # csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         csvPathname = h2o.find_file('smalldata/covtype/covtype.20k.data')
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)

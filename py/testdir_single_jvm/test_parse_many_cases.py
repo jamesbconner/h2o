@@ -205,6 +205,10 @@ class Basic(unittest.TestCase):
                     h2o_cmd.runRF(trees=1, csvPathname=csvPathname,
                         timeoutSecs=10, retryDelaySecs=0.1)
                     h2o.verboseprint("Set", set)
+                    if (h2o.check_sandbox_for_errors()):
+                        raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)
+
+
                     sys.stdout.write('.')
                     sys.stdout.flush()
     
