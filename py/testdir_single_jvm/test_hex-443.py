@@ -12,7 +12,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_RF_poker_1m_rf(self):
+    def test_hex_443(self):
         csvPathname = h2o.find_file('smalldata/hex-432.parsetmp_1_0_0_0.data')
         h2o_cmd.runRF(trees=1, timeoutSecs=5, csvPathname=csvPathname)
 
