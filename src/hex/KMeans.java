@@ -292,9 +292,8 @@ public abstract class KMeans {
       for( int i = 0; i < points.length; i++ )
         sum += minSqr(res, count, points[i]);
 
-      double r = rand.nextDouble() * sum;
       for( int i = 0; i < points.length; i++ ) {
-        if( r < minSqr(res, count, points[i]) ) {
+        if( minSqr(res, count, points[i]) > rand.nextDouble() * sum ) {
           res[count++] = points[i];
           break;
         }
