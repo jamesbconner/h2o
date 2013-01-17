@@ -114,25 +114,21 @@ public final class LSMSolver extends Iced {
       final int N = xx.getRowDimension();
       final double ABSTOL = Math.sqrt(N) * 1e-4;
       final double RELTOL = 1e-2;
-      double[] z = new double[N];
-      double[] u = new double[N];
+      double[] z = new double[N-1];
+      double[] u = new double[N-1];
       Matrix xm = null;
       Matrix xyPrime = (Matrix)xy.clone();
       double kappa = _lambda / _rho;
-      //System.out.println("XX");
-      //System.out.println(xx);
+
       for( int i = 0; i < 10000; ++i ) {
         // first compute the x update
-        // add rho*(z-u) to A'*y and add rho to diagonal of A'A
-        for( int j = 0; j < N; ++j ) {
+        // add rho*(z-u) to A'*y
+        for( int j = 0; j < N-1; ++j ) {
           xyPrime.set(j, 0, xy.get(j, 0) + _rho * (z[j] - u[j]));
         }
-        //System.out.println("XY");
-        //System.out.println(xyPrime);
+
         // updated x
         xm = lu.solve(xyPrime);
-        //System.out.println("X");
-        //System.out.println(xm);
         // vars to be used for stopping criteria
         double x_norm = 0;
         double z_norm = 0;
@@ -142,7 +138,7 @@ public final class LSMSolver extends Iced {
         double eps_pri = 0; // epsilon primal
         double eps_dual = 0;
         // compute u and z update
-        for( int j = 0; j < N; ++j ) {
+        for( int j = 0; j < N-1; ++j ) {
           double x_hat = xm.get(j, 0);
           x_norm += x_hat * x_hat;
           x_hat = x_hat * _alpha + (1 - _alpha) * z[j];
@@ -159,19 +155,10 @@ public final class LSMSolver extends Iced {
         s_norm = _rho * Math.sqrt(s_norm);
         eps_pri = ABSTOL + RELTOL * Math.sqrt(Math.max(x_norm, z_norm));
         eps_dual = ABSTOL + _rho * RELTOL * Math.sqrt(u_norm);
-        //System.out.println("u = " + Arrays.toString(u));
-        //System.out.println("z = " + Arrays.toString(z));
-        //System.out.println(xyPrime);
-//        try {
-//          System.in.read();
-//        } catch( IOException e ) {
-//          // TODO Auto-generated catch block
-//          throw new RuntimeException(e);
-//
-//        }
+
         if( r_norm < eps_pri && s_norm < eps_dual ) break;
       }
-      return z;
+      return xm.getColumnPackedCopy();
    default:
      throw new IllegalArgumentException("unexpected penalty " + _penalty);
     }

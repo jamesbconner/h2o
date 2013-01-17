@@ -40,10 +40,10 @@ public final class GramMatrix extends Iced {
 
   public Matrix [] getXandY(double lambda){
     Matrix xx = new Matrix(_xx.length, _xx.length);
-    for( int i = 0; i < _xx.length; ++i ) {
+    for( int i = 0; i < _n; ++i ) {
       for( int j = 0; j < _xx[i].length; ++j ) {
         if(i == j) {
-          xx.set(i, j, _xx[i][j] + ((i != _n)?lambda:0.0)); // constant is not regularized
+          xx.set(i, j, _xx[i][j] + ((i != (_n-1))?lambda:0.0)); // constant is not regularized
           //xx.set(i, j, _xx[i][j] + lambda);
         } else {
           xx.set(i, j, _xx[i][j]);

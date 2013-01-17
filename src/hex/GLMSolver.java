@@ -6,6 +6,8 @@ import java.util.*;
 
 import water.*;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.google.gson.*;
 
 public class GLMSolver {
@@ -797,6 +799,13 @@ public class GLMSolver {
   }
 
   public static class GLMValidation extends Iced {
+    public static final BiMap<Class<? extends GLMValidation>, Integer> TYPE;
+    static {
+        TYPE = HashBiMap.create();
+        TYPE.put(null, -1);
+        TYPE.put(GLMValidation.class, 0);
+        TYPE.put(GLMXValidation.class, 1);
+    }
     Link _l;
     Family _f;
     Key _dataKey;

@@ -34,7 +34,7 @@ public abstract class RowVecTask extends MRTask {
     _colIds = colIds;
   }
 
-  public static class Sampling extends Iced {
+  public static class Sampling extends Iced implements Cloneable{
     private final int _step;
     private final int _offset;
     private final boolean _complement;
@@ -44,6 +44,9 @@ public abstract class RowVecTask extends MRTask {
       _step = step;
       _complement = complement;
       _offset = offset;
+    }
+    public Sampling(Sampling other) {
+      this(other._offset,other._step,other._complement);
     }
 
     Sampling complement(){
@@ -62,6 +65,11 @@ public abstract class RowVecTask extends MRTask {
     public String toString(){
       return "Sampling(step="+_step + ",offset=" + _offset + ",complement=" + _complement + ")";
     }
+
+    public Sampling clone(){
+      return new Sampling(this);
+    }
+
   }
 
   public RowVecTask() {}
@@ -75,6 +83,7 @@ public abstract class RowVecTask extends MRTask {
 
   @Override
   public void map(Key key) {
+    Sampling s = (_s != null)?_s.clone():null;
     init2();                    // Specialized subtask per-chunk init
     AutoBuffer bits = _ary.getChunk(key);
     final int rows = bits.remaining()/_ary._rowsize;
@@ -84,7 +93,7 @@ public abstract class RowVecTask extends MRTask {
     // compute offsets
 ROW:
     for( int r=0; r<rows; r++ ) {
-      if( _s != null && _s.skip(r) ) continue;
+      if( s != null && s.skip(r) ) continue;
       if( _categoricals != null ) for( int i : _categoricals ) {
         int col = _colIds[i];
         if( _ary.isNA(bits,r,col) ) continue ROW;
