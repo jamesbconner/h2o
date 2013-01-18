@@ -15,7 +15,7 @@ public class RFView extends Request {
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(WEIGHTS, _dataKey, _classCol, 1);
   protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
-  protected final HexColumnSelect _ignore = new HexColumnSelect(IGNORE, _dataKey, _classCol);
+  protected final HexColumnSelect _ignore = new HexNonClassColumnSelect(IGNORE, _dataKey, _classCol);
   protected final Bool _noCM = new Bool(NO_CM, false,"Do not produce confusion matrix");
   protected final Bool _clearCM = new Bool(JSON_CLEAR_CM, false, "Clear cache of model confusion matrices");
 
