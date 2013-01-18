@@ -8,6 +8,7 @@ import java.util.*;
 import water.*;
 import water.web.RString;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.gson.JsonObject;
@@ -1600,31 +1601,27 @@ public class RequestArguments extends RequestStatics {
   }
 
   // ---------------------------------------------------------------------------
-  // HexColumnSelect
+  // IgnoreHexCols
   // ---------------------------------------------------------------------------
 
   public class HexColumnSelect extends MultipleSelect<int[]> {
     public final H2OHexKey _key;
-    public final H2OHexKeyCol _avoid;
+    public final H2OHexKeyCol _classCol;
 
-    public HexColumnSelect(String name, H2OHexKey key, H2OHexKeyCol avoid) {
+    public HexColumnSelect(String name, H2OHexKey key, H2OHexKeyCol classCol) {
       super(name);
       addPrerequisite(_key = key);
-      _avoid = avoid;
+      addPrerequisite(_classCol = classCol);
     }
 
     @Override protected String[] selectValues() {
       ValueArray va = _key.value();
-      int avoid = -1, count = va._cols.length;
-      if(_avoid != null) {
-        avoid=_avoid.value();
-        count--;
-      }
-      String[] result = new String[count];
+      int classCol = _classCol.value();
+      String[] result = new String[va._cols.length-1]; // no class col
       int j = 0;
       for (int i = 0; i < va._cols.length; ++i) {
-        if (i == avoid)
-          continue;
+        if (i == classCol)
+          continue; // class column cannot be ignored
         result[j] = va._cols[i]._name == null ? String.valueOf(i) : va._cols[i]._name;
         ++j;
       }
@@ -1646,17 +1643,17 @@ public class RequestArguments extends RequestStatics {
 
     @Override protected int[] parse(String input) throws IllegalArgumentException {
       ValueArray va = _key.value();
-      int avoid = _avoid != null ? _avoid.value() : -1;
+      int classCol = _classCol.value();
       ArrayList<Integer> al = new ArrayList();
       for (String col : input.split(",")) {
         col = col.trim();
         int idx = vaColumnNameToIndex(va, col);
         if (idx == -1)
           throw new IllegalArgumentException("Column "+col+" not part of key "+va._key);
-        if (idx == avoid)
-          throw new IllegalArgumentException("Class column "+col+" cannot be selected");
+        if (idx == classCol)
+          throw new IllegalArgumentException("Class column "+col+" cannot be ignored");
         if (al.contains(idx))
-          throw new IllegalArgumentException("Column "+col+" is already selected.");
+          throw new IllegalArgumentException("Column "+col+" is already ignored.");
         al.add(idx);
       }
       int[] result = new int[al.size()];
@@ -1666,14 +1663,65 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected int[] defaultValue() {
+      return new int[0];
+    }
+
+    @Override protected String queryDescription() {
+      return "Columns to be ignored by the computation";
+    }
+  }
+
+  public class HexIgnoreColumnSelect extends MultipleSelect<int[]> {
+    public final H2OHexKey _key;
+
+    public HexIgnoreColumnSelect(String name, H2OHexKey key) {
+      super(name);
+      addPrerequisite(_key = key);
+    }
+
+    @Override protected String[] selectValues() {
+      ValueArray va = _key.value();
+      String[] result = new String[va._cols.length];
+      for (int i = 0; i < va._cols.length; ++i)
+        result[i] = Objects.firstNonNull(va._cols[i]._name, String.valueOf(i));
+      return result;
+    }
+
+    @Override protected boolean isSelected(String value) {
+      ValueArray va = _key.value();
+      int[] val = value();
+      if (val == null)
+        return false;
+      int idx = vaColumnNameToIndex(va,value);
+      for (int i = 0; i < val.length; ++i)
+        if (val[i] == idx)
+          return true;
+      return false;
+    }
+
+    @Override protected int[] parse(String input) throws IllegalArgumentException {
+      ValueArray va = _key.value();
+      ArrayList<Integer> al = new ArrayList();
+      for (String col : input.split(",")) {
+        col = col.trim();
+        int idx = vaColumnNameToIndex(va, col);
+        if (idx == -1)
+          throw new IllegalArgumentException("Column "+col+" not part of key "+va._key);
+        if (al.contains(idx))
+          throw new IllegalArgumentException("Column "+col+" is already ignored.");
+        al.add(idx);
+      }
+      return Ints.toArray(al);
+    }
+
+    @Override protected int[] defaultValue() {
       int[] cols = new int[_key.value()._cols.length];
-      for( int i = 0; i < cols.length; i++ )
-        cols[i]=i;
+      for( int i = 0; i < cols.length; i++ ) cols[i]=i;
       return cols;
     }
 
     @Override protected String queryDescription() {
-      return "Columns selection";
+      return "Columns selected";
     }
   }
 
@@ -1683,7 +1731,7 @@ public class RequestArguments extends RequestStatics {
       super(name, key, classCol);
     }
     @Override protected int[] defaultValue() {
-      int classCol = _avoid.value();
+      int classCol = _classCol.value();
       ValueArray va = _key.value();
       List<Integer> res = Lists.newArrayList();
       for( int i=0; i<va._cols.length; i++ )
