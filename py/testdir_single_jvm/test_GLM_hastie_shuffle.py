@@ -2,7 +2,7 @@
 # Elements of Statistical Learning 2nd Ed.; Hastie, Tibshirani, Friedman; Feb 2011
 # example 10.2 page 357
 # Ten features, standard independent Gaussian. Target y is:
-#   y[i] = 1 if sum(X[i]) > 9.34 else -1
+#   y[i] = 1 if sum(X[i]) > .34 else -1
 # 9.34 is the median of a chi-squared random variable with 10 degrees of freedom 
 # (sum of squares of 10 standard Gaussians)
 # http://www.stanford.edu/~hastie/local.ftp/Springer/ESLII_print5.pdf
@@ -24,7 +24,7 @@ import copy
 def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     print "\nStarting GLM of", csvFilename
     parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename, timeoutSecs=10)
-    y = "9"
+    y = "10"
     x = ""
     # Took xval out, because GLM doesn't include xval time and it's slow
     # wanted to compare GLM time to my measured time
