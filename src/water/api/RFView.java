@@ -51,7 +51,7 @@ public class RFView extends Request {
       Confusion confusion = Confusion.make(model, _dataKey.value()._key, _classCol.value(), ignores, weights, _oobee.value());
       response.addProperty(JSON_CONFUSION_KEY, confusion.keyFor().toString());
       // if the matrix is valid, report it in the JSON
-      if (confusion.isValid()) {
+      if (confusion.isValid() && finished > 0) {
         finished += 1;
         JsonObject cm = new JsonObject();
         JsonArray cmHeader = new JsonArray();
@@ -83,9 +83,7 @@ public class RFView extends Request {
     }
     response.add(Constants.TREES,trees);
 
-    JsonObject pollArgs = argumentsToJson();
-    //pollArgs.addProperty(JSON_NO_CM,"1"); // not yet - CM runs in the same thread TODO
-    Response r = (finished == tasks) ? Response.done(response) : Response.poll(response, finished, tasks, pollArgs);
+    Response r = (finished == tasks) ? Response.done(response) : Response.poll(response, finished, tasks);
     r.setBuilder(JSON_CM, new ConfusionMatrixBuilder());
     r.setBuilder(Constants.TREES, new TreeListBuilder());
     return r;
@@ -105,16 +103,20 @@ public class RFView extends Request {
 
   public class TreeListBuilder extends ObjectBuilder {
     @Override public String build(Response response, JsonObject t, String contextName) {
-      StringBuilder sb = new StringBuilder();
-      sb.append("<h3>Trees</h3>");
-      sb.append(t.get(Constants.TREE_COUNT)).append(" trees with min/max/mean depth of ");
-      stats(sb, t.get(TREE_DEPTH )).append(" and leaf of ");
-      stats(sb, t.get(TREE_LEAVES)).append(".<br>");
       int n = t.get(Constants.TREE_COUNT).getAsInt();
-      for( int i = 0; i < n; ++i ) {
-        sb.append(RFTreeView.link(_modelKey.value(), i,
-            _dataKey.value(), _classCol.value(),
-            Integer.toString(i))).append(" ");
+      StringBuilder sb = new StringBuilder();
+      if (n > 0) {
+        sb.append("<h3>Trees</h3>");
+        sb.append(t.get(Constants.TREE_COUNT)).append(" trees with min/max/mean depth of ");
+        stats(sb, t.get(TREE_DEPTH )).append(" and leaf of ");
+        stats(sb, t.get(TREE_LEAVES)).append(".<br>");
+        for( int i = 0; i < n; ++i ) {
+          sb.append(RFTreeView.link(_modelKey.value(), i,
+              _dataKey.value(), _classCol.value(),
+              Integer.toString(i+1))).append(" ");
+        }
+      } else {
+        sb.append("<h3>No trees yet...</h3>");
       }
       return sb.toString();
     }
