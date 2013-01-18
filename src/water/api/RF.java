@@ -50,6 +50,11 @@ public class RF extends Request {
         _strata.disable("Strata is only meaningful if stratify is on.", inputArgs);
       }
     }
+    if( arg == _ignore ) {
+      int[] ii = _ignore.value();
+      if( ii != null && ii.length >= _dataKey.value()._cols.length-1 )
+        throw new IllegalArgumentException("Cannot ignore all columns");
+    }
   }
 
   /** Fires the random forest computation.
