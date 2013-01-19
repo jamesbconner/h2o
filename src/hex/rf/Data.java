@@ -14,7 +14,7 @@ public class Data implements Iterable<Row> {
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(_index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i));
+      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i)).append(',');
       return sb.toString();
     }
     public int numClasses() { return classes(); }
@@ -42,6 +42,7 @@ public class Data implements Iterable<Row> {
   public int badRows()           { return _data._badRows;      }
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
+  public int available_columns() { return _data.available_columns(); }
   public int classes()           { return _data.classes();     }
   public long seed()             { return _data.seed();        }
   public long dataId()           { return _data.dataId();      }
@@ -164,7 +165,7 @@ public class Data implements Iterable<Row> {
         if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
       }
       if( _data.classOf(i) != -1 && r.nextFloat() < f ) {
-        if( j == sample.length ) sample = Arrays.copyOfRange(sample,0,(int)(sample.length*1.2)+1);
+        if( j == sample.length ) sample = Arrays.copyOfRange(sample,0,(int)(sample.length*1.2));
         sample[j++] = i;
       }
     }
