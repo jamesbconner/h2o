@@ -76,7 +76,7 @@ class EntropyStatistic extends Statistic {
     double maxReduction = -1;
     int bestSplit = -1;
     int min = d.colMinIdx(col);
-    int max = d.colMinIdx(col);
+    int max = d.colMaxIdx(col);
     for (int i = min; i < max+1; ++i) {
       for (int j = 0; j < distR.length; ++j) {
         int v = _columnDists[col][i][j];

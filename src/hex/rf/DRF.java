@@ -98,7 +98,7 @@ public final class DRF extends water.DRemoteTask {
       boolean stratify, Map<Integer,Integer> strata, int verbose,
       int exclusiveSplitLimit) {
     DRF drf = new DRF();
-    assert numSplitFeatures==-1 || ((numSplitFeatures>0) && (numSplitFeatures<ary._cols.length-1)) : "Bad number of split features: expected -1 or a number in range (0, num of cols)";
+    assert numSplitFeatures==-1 || ((numSplitFeatures>0) && (numSplitFeatures<ary._cols.length)) : "Bad number of split features: expected -1 or a number in range (0, num of cols)";
     drf._numSplitFeatures = numSplitFeatures;
     drf._parallel         = parallelTrees;
     drf._ntrees           = ntrees;
@@ -165,7 +165,6 @@ public final class DRF extends water.DRemoteTask {
     // Prepare data and compute missing parameters.
     Data t            = Data.make(dapt);
     _numSplitFeatures = howManySplitFeatures(t);
-    System.err.println("_numSplitFeatures = " + _numSplitFeatures);
     int ntrees        = howManyTrees();
 
     Utils.pln("[RF] Building "+ntrees+" trees");
