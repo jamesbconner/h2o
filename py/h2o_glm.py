@@ -91,11 +91,15 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
         str(absIntercept) + ", not >= 1e-18 for Intercept"
                 ))
 
+    # this is gon d])[1]d if we want min or max
+    # but we want it more complicated..min or max of abs
+    # maxCoeff = max(coefficients, key=coefficients.get)
+    # so invert the dictionary and 
 
-    maxCoeff = max(coefficients, key=coefficients.get)
-    print "Largest coefficient value:", maxCoeff, coefficients[maxCoeff]
-    minCoeff = min(coefficients, key=coefficients.get)
-    print "Smallest coefficient value:", minCoeff, coefficients[minCoeff]
+    maxKey = max([(abs(coefficients[x]),x) for x in coefficients])[1]
+    print "Largest abs. coefficient value:", maxKey, coefficients[maxKey]
+    minKey = min([(abs(coefficients[x]),x) for x in coefficients])[1]
+    print "Smallest abs. coefficient value:", minKey, coefficients[minKey]
 
     # many of the GLM tests aren't single column though.
     # quick and dirty check: if all the coefficients are zero, 

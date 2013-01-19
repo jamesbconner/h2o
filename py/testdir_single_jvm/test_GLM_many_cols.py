@@ -11,8 +11,16 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     for i in range(rowCount):
         rowData = []
         for j in range(colCount):
-            ri1 = r1.randint(0,1)
-            rowData.append(ri1)
+            if j==0:
+                ri = r1.randint(0,1)
+            else:
+                # temporarily force all cols except 0 to 0
+                # constant cols get dropped. avoid that by lots of small numbers
+                ri = r1.randint(0,1) * 1e-8
+            rowData.append(ri)
+
+        # make the output a copy of the first input feature?
+        rowData.append(rowData[0])
 
         rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
@@ -43,8 +51,16 @@ class Basic(unittest.TestCase):
     def test_GLM_many_cols(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
-            (100, 1000, 'cK', 300), 
-            (100, 3000, 'cK', 300), # 120 secs?
+            (100, 5, 'cA', 300), 
+            (100, 10, 'cB', 300), 
+            (100, 50, 'cC', 300), 
+            (100, 100, 'cD', 300), 
+            (100, 200, 'cE', 300), 
+            (100, 300, 'cF', 300), 
+            (100, 400, 'cG', 300), 
+            (100, 500, 'cH', 300), 
+            (100, 1000, 'cI', 300), 
+            (100, 3000, 'cJ', 300), # 120 secs?
             ]
 
         ### h2b.browseTheCloud()
@@ -66,12 +82,12 @@ class Basic(unittest.TestCase):
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
 
-            y = colCount - 1
-            kwargs = {'y': y, 'norm': 'L2', 'max_iter': 50, 'case': 'NaN'}
+            y = colCount
+            kwargs = {'y': y, 'norm': 'L1', 'max_iter': 50, 'case': 'NaN'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, 0, **kwargs)
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
