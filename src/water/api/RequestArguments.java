@@ -1,5 +1,6 @@
 package water.api;
 
+import hex.GLMSolver.CaseMode;
 import hex.rf.Model;
 
 import java.io.File;
@@ -1213,6 +1214,18 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
+  public class CaseModeSelect extends EnumArgument<CaseMode> {
+    public CaseModeSelect(H2OHexKey key,H2OHexKeyCol classCol, String name, CaseMode defaultValue) {
+      super(name, defaultValue);
+      addPrerequisite(_key = key);
+      addPrerequisite(_classCol  = classCol);
+      setRefreshOnChange();
+    }
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+
+  }
+
   // Binomial GLM 'case' selection.  Only useful for binomial GLM where the
   // response column is NOT 0/1 - names a value to be treated as 1 and all
   // other values are treated as zero.
@@ -1220,9 +1233,10 @@ public class RequestArguments extends RequestStatics {
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
 
+
     public CaseSelect(H2OHexKey key, H2OHexKeyCol classCol, String name) {
       super(name);
-      addPrerequisite(_key=key);
+      addPrerequisite(_key= key);
       addPrerequisite(_classCol=classCol);
     }
 
@@ -1230,10 +1244,12 @@ public class RequestArguments extends RequestStatics {
       ValueArray va = _key.value();
       int classCol = _classCol.value();
       ValueArray.Column C = va._cols[classCol];
-      if(C._min != 0 ||  C._max != 1.0 ) return C._max;
-      return Double.NaN;
+      return C._max;
     }
 
+    public void setValue(Double d){
+      record()._value = d;
+    }
     @Override protected Double parse(String input) throws IllegalArgumentException {
       // Set min & max at the last second, after key/column selection has been
       // cleared up
@@ -1250,6 +1266,7 @@ public class RequestArguments extends RequestStatics {
       return "Treat "+_classCol+" as a logical column, with values equal to this as true/1 and all other values as false/0";
     }
   }
+
 
   // ---------------------------------------------------------------------------
   // Bool
@@ -1280,6 +1297,10 @@ public class RequestArguments extends RequestStatics {
     protected final T _defaultValue;
 
 
+    public EnumArgument(String name, T defaultValue, boolean refreshOnChange) {
+      this(name,defaultValue);
+      if(refreshOnChange)setRefreshOnChange();
+    }
     public EnumArgument(String name, T defaultValue) {
       super(name, false);
       _defaultValue = defaultValue;
@@ -1297,7 +1318,7 @@ public class RequestArguments extends RequestStatics {
       T[] _enums = _enumClass.getEnumConstants();
       String[] result = new String[_enums.length];
       for (int i = 0; i < _enums.length; ++i)
-        result[i] = _enums[i].name();
+        result[i] = _enums[i].toString();
       return result;
     }
 
@@ -1305,12 +1326,12 @@ public class RequestArguments extends RequestStatics {
       T v = value();
       if (v == null)
         return "";
-      return v.name();
+      return v.toString();
     }
 
     @Override protected T parse(String input) throws IllegalArgumentException {
       for (T v : _enumClass.getEnumConstants())
-        if (v.name().equals(input))
+        if (v.toString().equals(input))
           return v;
       throw new IllegalArgumentException("Only "+Arrays.toString(selectValues())+" accepted for argument "+_name);
     }
@@ -1611,6 +1632,8 @@ public class RequestArguments extends RequestStatics {
       super(name);
       addPrerequisite(_key = key);
       _avoid = avoid;
+      if(_avoid != null)
+        addPrerequisite(_avoid);
     }
 
     @Override protected String[] selectValues() {
