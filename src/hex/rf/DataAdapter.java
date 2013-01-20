@@ -119,8 +119,8 @@ final class DataAdapter  {
     if (ignore(col)) return false;
     if (va.isNA(ab,row,col)) return false;
 // FIXME    if (!_c[col]._isFloat) return true;
-    float f =(float) va.datad(ab,row,col);
-    if (Float.isInfinite(f)) return false;
+//    float f =(float) va.datad(ab,row,col);
+    //if (Float.isInfinite(f)) return false;
     return true;
   }
 

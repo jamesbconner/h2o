@@ -96,6 +96,9 @@ public class RandomForest {
     ARGS.h2oArgs = ARGS.h2oArgs.trim();
     String [] h2oArgs = ARGS.h2oArgs.split("[ \t]+");
     H2O.main(h2oArgs);
+//    new RandomForestTest().kaggle_credit();
+  //  new RandomForestTest().testRF_Iris();
+//System.exit(1);
     ValueArray va;
     // get the input data
     if(ARGS.parsedKey != null) // data already parsed
