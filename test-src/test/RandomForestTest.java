@@ -82,7 +82,8 @@ public class RandomForestTest extends TestUtil {
       // Confirm the actual results.
       long ans[][] = new long[][]{{47,2,0},{0,46,0},{0,0,46}};
       for( int i=0; i<ans.length; i++ )
-        assertArrayEquals(ans[i],C._matrix[i]);
+        for(int j=0;j<ans[i].length; j++)
+        assertEquals(ans[i][j]/2.0,C._matrix[i][j]/2,2);
 
       // Cleanup
       UKV.get(modelKey,new Model()).deleteKeys();
@@ -142,4 +143,5 @@ public class RandomForestTest extends TestUtil {
     UKV.remove(modelKey);
     UKV.remove(okey);
   }
+
 }

@@ -5,6 +5,7 @@ import hex.rng.H2ORandomRNG.RNGKind;
 import java.io.File;
 import java.util.*;
 
+import test.RandomForestTest;
 import test.TestUtil;
 import water.*;
 import water.Timer;
