@@ -60,7 +60,7 @@ public class NormalDABuilder extends DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncolumns; ++c) { // Bail out of broken rows in not-ignored columns
-              if( !dapt.ignore(c) && ary.isNA(bits,j,c)) {
+              if( ! dapt.ignore(c) && ! dapt.isValid(ary,bits,j,c)) {
                 dapt.setBad(S+j);
                 continue ROWS;
               }
@@ -104,7 +104,7 @@ public class NormalDABuilder extends DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int col : colIds)
-              if( ary.isNA(bits,j,col) || Float.isInfinite((float)ary.datad(bits,j,col))) continue ROWS;
+              if( ! dapt.isValid(ary, bits, j, col) ) continue ROWS;
             for(int col : colIds)
               dapt.addValueRaw((float)ary.datad(bits,j,col), j + S, col);
           }

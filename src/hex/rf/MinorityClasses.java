@@ -164,9 +164,9 @@ public class MinorityClasses {
       Column c = ary._cols[_classIdx];
       int rows = bits.remaining()/ary.rowSize();
       for(int i = 0; i < rows; ++i) {
-        if (!ary.isNA(bits, i, _classIdx)) {
-          ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
-        }
+        if (ary.isNA(bits, i, _classIdx)) continue;
+        if ( c.isFloat() &&  Float.isInfinite((float) ary.datad(bits, i,c))) continue;
+        ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
       }
     }
 
