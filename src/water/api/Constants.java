@@ -147,4 +147,6 @@ public class Constants {
   public static final String VIEW                  = "view";
   public static final String WARNINGS              = "warnings";
   public static final String WEIGHTS               = "class_weights";
+
+  public static final String WEB_ROOT_OBJECT       = "";
 }

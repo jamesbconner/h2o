@@ -14,7 +14,7 @@ public class Data implements Iterable<Row> {
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(_index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i));
+      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i)).append(',');
       return sb.toString();
     }
     public int numClasses() { return classes(); }
@@ -29,13 +29,20 @@ public class Data implements Iterable<Row> {
   /** Returns new Data object that stores all adapter's rows unchanged.   */
   public static Data make(DataAdapter da) { return new Data(da); }
 
-  protected Data(DataAdapter da) { _data = da; }
+  protected Data(DataAdapter da) {
+    _data = da;
+    _columnInfo = new ColumnInfo[_data.columns()];
+    for(int i = 0; i<_columnInfo.length; i++) {
+      _columnInfo[i] = _data.ignore(i) ? null : new ColumnInfo(i);
+    }
+  }
 
   protected int start()          { return 0;                   }
   protected int end()            { return _data._numRows;      }
   public int badRows()           { return _data._badRows;      }
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
+  public int available_columns() { return _data.available_columns(); }
   public int classes()           { return _data.classes();     }
   public long seed()             { return _data.seed();        }
   public long dataId()           { return _data.dataId();      }
@@ -61,6 +68,7 @@ public class Data implements Iterable<Row> {
     final Row row = new Row();
     int[] permutation = getPermutationArray();
     int l = start(), r = end() - 1;
+
     while (l <= r) {
       int permIdx = row._index = permutation[l];
       if (node.isIn(row)) {
@@ -75,8 +83,14 @@ public class Data implements Iterable<Row> {
     assert r+1 == l;
     ls.applyClassWeights();     // Weight the distributions
     rs.applyClassWeights();     // Weight the distributions
+    ColumnInfo[] linfo = _columnInfo.clone();
+    ColumnInfo[] rinfo = _columnInfo.clone();
+    linfo[node._column]= linfo[node._column].left(node._split);
+    rinfo[node._column]= rinfo[node._column].right(node._split);
     result[0]= new Subset(this, permutation, start(), l);
     result[1]= new Subset(this, permutation, l,   end());
+    result[0]._columnInfo = linfo;
+    result[1]._columnInfo = rinfo;
   }
 
   public Data sampleWithReplacement(double bagSizePct, short[] complement) {
@@ -211,6 +225,33 @@ public class Data implements Iterable<Row> {
     for( int i = 0; i < perm.length; ++i ) perm[i] = i;
     return perm;
   }
+
+  public int colMinIdx(int i) { return _columnInfo[i].min; }
+  public int colMaxIdx(int i) { return _columnInfo[i].max; }
+
+  class ColumnInfo {
+    private final int col;
+    int min, max;
+    ColumnInfo(int col_) { col=col_; max = _data.columnArity(col_) - 1; }
+    ColumnInfo left(int idx) {
+      ColumnInfo res = new ColumnInfo(col);
+      res.max = idx < max ? idx : max;
+      res.min = min;
+      return res;
+    }
+    ColumnInfo right(int idx) {
+      ColumnInfo res = new ColumnInfo(col);
+      res.min = idx >= min ? (idx+1) : min;
+      res.max = max;
+      return res;
+    }
+    int min() { return min; }
+    int max() { return max; }
+
+    public String toString() { return  col +  "["+ min +","+ max + "]"; }
+  }
+
+  ColumnInfo[] _columnInfo;
 }
 
 class Subset extends Data {

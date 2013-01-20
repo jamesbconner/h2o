@@ -8,7 +8,7 @@ import water.ValueArray.Column;
 
 import com.google.common.primitives.Ints;
 
-class DataAdapter  {
+final class DataAdapter  {
   private final int _numClasses;
   int [] _intervalsStarts;
   int _badRows;
@@ -22,6 +22,8 @@ class DataAdapter  {
   public final double[] _classWt;
   /** Maximum arity for a column (not a hard limit) */
   final short _bin_limit;
+  /** Number of available columns */
+  private final int _available_columns;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
               long unique, long seed, short bin_limit, double[] classWt) {
@@ -36,6 +38,7 @@ class DataAdapter  {
 
     _classIdx = classCol;
     assert ignores.length < cols.length - 1;
+    int available_columns = 0;
     for( int i = 0; i < cols.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       Column c = cols[i];
@@ -51,6 +54,7 @@ class DataAdapter  {
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
       boolean do_bin = !raw && !ignore;
       _c[i]= new C(c._name, rows, i==_classIdx, t, do_bin, ignore,_bin_limit, c._scale>1);
+      available_columns += !_c[i]._ignore ? 1 : 0;
       if( raw ) {
         _c[i]._smax = (short)range;
         _c[i]._min = (float)c._min;
@@ -61,6 +65,8 @@ class DataAdapter  {
     _numRows = rows;
     assert classWt == null || classWt.length==_numClasses;
     _classWt = classWt;
+    assert available_columns <= cols.length - ignores.length : "Avaiable columns are computed in wrong way!";
+    _available_columns = available_columns;
   }
   public void initIntervals(int n){
     _intervalsStarts = new int[n+1];
@@ -97,6 +103,8 @@ class DataAdapter  {
   public int classes()        { return _numClasses; }
   /** True if we should ignore column i. */
   public boolean ignore(int i){ return _c[i]._ignore; }
+  /** Number of available columns (number of columns - number of ignored columns) */
+  public final int available_columns()  { return _available_columns; }
 
   /** Returns the number of bins, i.e. the number of distinct values in the
    * column.  Zero if we are ignoring the column. */
