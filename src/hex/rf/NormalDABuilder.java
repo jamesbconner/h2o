@@ -1,6 +1,3 @@
-/**
- *
- */
 package hex.rf;
 
 import java.util.*;
@@ -11,15 +8,9 @@ import jsr166y.RecursiveAction;
 import water.*;
 import water.Timer;
 
-/**
- *   Stratified-based loader.
- *
- */
 public class NormalDABuilder extends DABuilder {
 
-  public NormalDABuilder(final DRF drf) {
-    super(drf);
-  }
+  public NormalDABuilder(final DRF drf) { super(drf); }
 
   @Override
   protected final DataAdapter inhaleData(final Key arykey, final Key [] keys) {
@@ -69,7 +60,7 @@ public class NormalDABuilder extends DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncolumns; ++c) { // Bail out of broken rows in not-ignored columns
-              if( !dapt.ignore(c) && ary.isNA(bits,j,c)) {
+              if( ! dapt.isValid(ary,bits,j,c)) {
                 dapt.setBad(S+j);
                 continue ROWS;
               }
@@ -113,9 +104,13 @@ public class NormalDABuilder extends DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int col : colIds)
-              if( ary.isNA(bits,j,col) ) continue ROWS;
-            for(int col : colIds)
+              if( ary.isNA(bits, j, col)) continue ROWS;
+              else if( /* FIXME ary._cols[col].isFloat() && */  Float.isInfinite((float) ary.datad(bits, j, col))) continue ROWS;
+
+            for(int col : colIds) {
+              assert !Float.isInfinite((float) ary.datad(bits, j, col)) : ary._cols[col].isFloat();
               dapt.addValueRaw((float)ary.datad(bits,j,col), j + S, col);
+            }
           }
         }
       });

@@ -46,9 +46,7 @@ final class DataAdapter  {
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("[DA] Ignoring column " + i + " as all values are identical.");   }
       boolean raw = (c._size > 0 && !c.isScaled() && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
-      // FIXME: do not understand the meaning of the following line
-      raw = (i==_classIdx); // It is actually faster to ignore this "optimization"
-
+      raw = (i==_classIdx);
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1 ) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
@@ -84,12 +82,11 @@ final class DataAdapter  {
   public float unmap(int col, int idx){
     C c = _c[col];
     if ( !c._bin ) return idx + c._min;
-
     assert idx < c._binned2raw.length : "Trying to reference binned value out of binned2raw array!";
     float flo = c._binned2raw[idx+0]; // Convert to the original values
     float fhi = c._binned2raw[idx+1];
     float fmid = (flo+fhi)/2.0f; // Compute a split-value
-    assert flo < fmid && fmid < fhi; // Assert that the float will properly split
+    assert flo < fmid && fmid < fhi : "Values " + flo +","+fhi ; // Assert that the float will properly split
     return fmid;
   }
 
@@ -115,6 +112,15 @@ final class DataAdapter  {
 
   /** Return the array of all column names including ignored and class. */
   public String columnNames(int i) { return _c[i]._name; }
+
+  public boolean isValid(ValueArray va, AutoBuffer ab, int row, int col) {
+    if (ignore(col)) return false;
+    if (va.isNA(ab,row,col)) return false;
+// FIXME    if (!_c[col]._isFloat) return true;
+    float f =(float) va.datad(ab,row,col);
+    if (Float.isInfinite(f)) return false;
+    return true;
+  }
 
   public void addValueRaw(float v, int row, int col){ _c[col].addRaw(v, row); }
 

@@ -1,29 +1,17 @@
-/**
- *
- */
 package hex.rf;
 
 import water.*;
 
-/**
- * Shared method for {@link DataAdapter} building.
- *
- */
 abstract public class DABuilder {
   protected final DRF _drf;
 
   public static DABuilder create(final DRF drf) {
-    if (drf._useStratifySampling)
-      return new StratifiedDABuilder(drf);
-    else
-      return new NormalDABuilder(drf);
+    return drf._useStratifySampling ? new StratifiedDABuilder(drf) : new NormalDABuilder(drf);
   }
 
   @SuppressWarnings("unused") private DABuilder() { this(null); };
 
-  DABuilder(final DRF drf) {
-    _drf = drf;
-  }
+  DABuilder(final DRF drf) { _drf = drf;  }
 
   final DataAdapter build(final Key arykey, final Key [] keys) {
     return inhaleData(arykey, keys);

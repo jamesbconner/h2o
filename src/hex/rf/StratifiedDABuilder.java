@@ -69,12 +69,12 @@ public class StratifiedDABuilder extends DABuilder {
         if( (_iclasses != null) && _iclasses[c] )
           continue ROWS;
         for( int col:_binColIds)
-          if( _ary.isNA(bits, i, col) ) {
+          if( !_dapt.ignore(col) && ! _dapt.isValid(_ary,bits, i, col) ) {
             _dapt.setBad(outputRow); // FIXME I do not need to mark it bad (will be fixed in missing values fix)
             continue ROWS;
           }
         for( int col:_rawColIds)
-          if( _ary.isNA(bits, i, col) ) {
+          if( !_dapt.ignore(col) && ! _dapt.isValid(_ary,bits, i, col) ) {
             _dapt.setBad(outputRow);
             continue ROWS;
           }
@@ -124,6 +124,7 @@ public class StratifiedDABuilder extends DABuilder {
           AutoBuffer bits = ary.getChunk(chunkKey);
           int rows = bits.remaining()/ary.rowSize();
           for(int i = 0; i < rows; ++i) {
+           // FIXME:   if( !_dapt.ignore(col) && ! _dapt.isValid(_ary,bits, i, col) )
             if (!ary.isNA(bits, i, classCol))
               ++chunkHistogram[chunkId][(int)(ary.data(bits, i, classCol)-classCol._min)];
           }
