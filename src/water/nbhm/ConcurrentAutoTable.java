@@ -136,7 +136,7 @@ public class ConcurrentAutoTable implements Serializable {
     private volatile long _fuzzy_sum_cache;
     private volatile long _fuzzy_time;
     private static final int MAX_SPIN=2;
-    private long[] _t;            // Power-of-2 array of longs
+    private final long[] _t;     // Power-of-2 array of longs
 
     CAT( CAT next, int sz, long init ) {
       _next = next;
@@ -204,10 +204,18 @@ public class ConcurrentAutoTable implements Serializable {
       long sum = _sum_cache;
       if( sum != Long.MIN_VALUE ) return sum;
       sum = _next == null ? 0 : _next.sum(mask); // Recursively get cached sum
-      long[] t = _t;
+      final long old_sum = sum;                  // Hang onto prior sums
+      final long[] t = _t;
       for( int i=0; i<t.length; i++ )
         sum += t[i]&(~mask);
-      _sum_cache = sum;         // Cache includes recursive counts
+      _sum_cache = sum;         // Cache includes recursive counts; volatile write
+      // We might have read the array whilst it was changing and just cached a
+      // stale result.  Read it again (its the old read-twice-see-if-equal hack).
+      long sum2 = old_sum;
+      for( int i=0; i<t.length; i++ )
+        sum2 += t[i]&(~mask);
+      if( sum != sum2 )              // Array is changing?
+        _sum_cache = Long.MIN_VALUE; // Blow off caching
       return sum;
     }
 
