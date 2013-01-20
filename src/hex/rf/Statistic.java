@@ -124,12 +124,11 @@ abstract class Statistic {
    * the analyzed columns. */
   void addQ(Row row) {
     final int cls = row.classOf();
-    for (int f : _features) {
+    for (int f : _features)
       if ( f != -1) {
         short val = row.getEncodedColumnValue(f);
         _columnDists[f][val][cls]++;
       }
-    }
   }
 
   /** Apply any class weights to the distributions.*/
