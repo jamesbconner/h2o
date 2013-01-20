@@ -82,7 +82,7 @@ def runGLMGridOnly(node=None,parseKey=None,
 def runRF(node=None, csvPathname=None, trees=5, key=None, 
         timeoutSecs=20, retryDelaySecs=2, **kwargs):
     # use 1/10th the GLM timeoutSecs for allowed parse time.
-    pto = max(timeoutSecs/10,10)
+    pto = max(timeoutSecs/5,30)
     parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     return runRFOnly(node, parseKey, trees, timeoutSecs, retryDelaySecs, **kwargs)
 
