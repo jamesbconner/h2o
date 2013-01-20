@@ -1,6 +1,3 @@
-/**
- *
- */
 package hex.rf;
 
 import java.util.*;
@@ -11,15 +8,9 @@ import jsr166y.RecursiveAction;
 import water.*;
 import water.Timer;
 
-/**
- *   Stratified-based loader.
- *
- */
 public class NormalDABuilder extends DABuilder {
 
-  public NormalDABuilder(final DRF drf) {
-    super(drf);
-  }
+  public NormalDABuilder(final DRF drf) { super(drf); }
 
   @Override
   protected final DataAdapter inhaleData(final Key arykey, final Key [] keys) {
@@ -113,7 +104,7 @@ public class NormalDABuilder extends DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int col : colIds)
-              if( ary.isNA(bits,j,col) ) continue ROWS;
+              if( ary.isNA(bits,j,col) || Float.isInfinite((float)ary.datad(bits,j,col))) continue ROWS;
             for(int col : colIds)
               dapt.addValueRaw((float)ary.datad(bits,j,col), j + S, col);
           }

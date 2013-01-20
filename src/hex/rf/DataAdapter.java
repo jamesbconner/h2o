@@ -46,9 +46,7 @@ final class DataAdapter  {
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("[DA] Ignoring column " + i + " as all values are identical.");   }
       boolean raw = (c._size > 0 && !c.isScaled() && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
-      // FIXME: do not understand the meaning of the following line
-      raw = (i==_classIdx); // It is actually faster to ignore this "optimization"
-
+      raw = (i==_classIdx);
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1 ) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
