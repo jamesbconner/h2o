@@ -95,6 +95,8 @@ final class DataAdapter  {
   public long seed()          { return _seed; }
   public int columns()        { return _c.length;}
   public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
+  /**Returns true if the row has missing data. */
+  public boolean badRow(int idx) { return getEncodedColumnValue(idx,_classIdx) == -1; }
   public long dataId()         { return _dataId; }
   /** The number of possible prediction classes. */
   public int classes()        { return _numClasses; }
@@ -236,14 +238,12 @@ final class DataAdapter  {
     void shrink() {
       if( _ignore || _isClass ) return;
       Arrays.sort(_raw);
-      int ndups = 0;
-      int i = 0;
+      int ndups = 0, i = 0;
       // count dups
       while(i < _raw.length-1){
         int j = i+1;
         while(j < _raw.length && _raw[i] == _raw[j]){
-          ++ndups;
-          ++j;
+          ++ndups; ++j;
         }
         i = j;
       }
@@ -265,8 +265,7 @@ final class DataAdapter  {
         _binned2raw[_smax] = _raw[i];
       }
       ++_smax;
-      if( n > _bin_limit )
-        Utils.pln(this + " this column's arity was cut from "+ n + " to " + _smax);
+      if( n > _bin_limit )  Utils.pln(this+" this column's arity was cut from "+n+" to "+_smax);
       _binned = MemoryManager.malloc2(_n);
       _raw = null;
     }

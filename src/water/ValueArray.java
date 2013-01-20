@@ -126,6 +126,8 @@ public class ValueArray extends Iced {
     return sb.toString();
   }
 
+
+  /**Returns the width of a row.*/
   public int rowSize() { return _rowsize; }
   public long numRows() { return _numrows; }
   public int numCols() { return _cols.length; }
