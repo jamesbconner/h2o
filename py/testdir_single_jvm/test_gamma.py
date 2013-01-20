@@ -10,7 +10,6 @@ def define_params():
     paramDict = {
         # 'x': ['0:3','14:17','5:10',0,1,15,33],
         'x': [0,1,15,33],
-        # 'glm_-X': [None,'20,28,40:53'],
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'family': ['gamma'],
         # 'xval': [2,3,4,9],
