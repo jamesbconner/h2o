@@ -150,6 +150,9 @@ abstract class Statistic {
    */
   Split split(Data d,boolean expectLeaf) {
     int[] dist = new int[d.classes()];
+    boolean valid = false;
+    for(int f : _features) valid |= f != -1;
+    if (!valid) return Split.defaultSplit(); // there are no features left...
     int distWeight = aggregateColumn(_features[0], dist);    // initialize the distribution array
     int m = Utils.maxIndex(dist, _random);
     if( expectLeaf || (dist[m] == distWeight ))  return Split.constant(m); // check if we are leaf node
