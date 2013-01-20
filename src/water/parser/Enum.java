@@ -1,10 +1,9 @@
 package water.parser;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-
 import water.AutoBuffer;
 import water.Iced;
+import water.nbhm.NonBlockingHashMap;
 
 /**
  * Class for tracking enum columns.
@@ -25,10 +24,10 @@ public final class Enum extends Iced {
 
   public static final int MAX_ENUM_SIZE = 65535;
 
-  volatile ConcurrentHashMap<ValueString, Integer> _map;
+  volatile NonBlockingHashMap<ValueString, Integer> _map;
 
   public Enum(){
-    _map = new ConcurrentHashMap<ValueString, Integer>();
+    _map = new NonBlockingHashMap<ValueString, Integer>();
   }
 
   /**
@@ -86,7 +85,7 @@ public final class Enum extends Iced {
     for( int i = 0; i < res.length; ++i )
       res[i] = it.next().toString();
     Arrays.sort(res);
-    ConcurrentHashMap<ValueString, Integer> newMap = new ConcurrentHashMap<ValueString, Integer>();
+    NonBlockingHashMap<ValueString, Integer> newMap = new NonBlockingHashMap<ValueString, Integer>();
     for( int j = 0; j < res.length; ++j )
       newMap.put(new ValueString(res[j]), j);
     oldMap.clear();
@@ -109,7 +108,7 @@ public final class Enum extends Iced {
 
   public Enum read( AutoBuffer ab ) {
     assert _map == null || _map.size()==0;
-    _map = new ConcurrentHashMap<ValueString, Integer>();
+    _map = new NonBlockingHashMap<ValueString, Integer>();
     int len = 0;
     while( (len = ab.get2()) != 65535 ) // Read until end-of-map marker
       _map.put(new ValueString(ab.getA1(len)),ab.get4());
