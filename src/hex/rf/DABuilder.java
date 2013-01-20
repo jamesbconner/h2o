@@ -7,9 +7,10 @@ import jsr166y.RecursiveAction;
 import water.*;
 
 class DABuilder {
+
   protected final DRF _drf;
 
-  public static DABuilder create(final DRF drf) {
+  static DABuilder create(final DRF drf) {
     return drf._useStratifySampling ? new StratifiedDABuilder(drf) : new DABuilder(drf);
   }
 
@@ -17,10 +18,7 @@ class DABuilder {
 
   DABuilder(final DRF drf) { _drf = drf;  }
 
-  final DataAdapter build(final Key arykey, final Key [] keys) {
-    return inhaleData(arykey, keys);
-  }
-
+  final DataAdapter build(final Key arykey, final Key [] keys) { return inhaleData(arykey, keys); }
 
   /** Check that we have proper number of valid columns vs. features selected, if not cap*/
   final void checkAndLimitFeatureUsedPerSplit(final DataAdapter dapt) {
@@ -59,7 +57,6 @@ class DABuilder {
                                               _drf._seed,
                                               _drf._binLimit,
                                               _drf._classWt);
-
     // Check that we have proper number of valid columns vs. features selected, if not cap.
     checkAndLimitFeatureUsedPerSplit(dapt);
 
@@ -68,14 +65,9 @@ class DABuilder {
     int bins = 0;
     for (int i = 0; i < ncolumns; i++) if (dapt.binColumn(i)) bins++;
     int[] colIds = new int[bins];
-    for (int i = 0, j = 0; i < ncolumns; i++)
-      if (dapt.binColumn(i)) colIds[j++]=i;
-    if (bins > 0) {
-      binData(dapt, keys, ary, colIds);
-    }
-    // Binning is done.
+    for (int i = 0, j = 0; i < ncolumns; i++) if (dapt.binColumn(i)) colIds[j++]=i;
+    if (bins > 0) binData(dapt, keys, ary, colIds);
     Utils.pln("[RF] Binning done in " + t_bin);
-
     // Inhale data.
     Timer t_inhale = new Timer();
     ArrayList<RecursiveAction> dataInhaleJobs = new ArrayList<RecursiveAction>();
@@ -89,32 +81,26 @@ class DABuilder {
         protected void compute() {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
-            for(int c = 0; c < ncolumns; ++c) { // Bail out of broken rows in not-ignored columns
+            for(int c = 0; c < ncolumns; ++c)  // Bail out of broken rows in not-ignored columns
               if( ! dapt.isValid(ary,bits,j,c)) {
                 dapt.setBad(S+j);
                 continue ROWS;
               }
-            }
-            for( int c = 0; c < ncolumns; ++c) {
-              if( dapt.ignore(c) ) {
-                dapt.addValue((short)0,S+j,c);
-              } else if( dapt.binColumn(c) ) {
-                dapt.addValue((float)ary.datad(bits,j,c), S+j, c);
-              } else {
+            for( int c = 0; c < ncolumns; ++c)
+              if( dapt.ignore(c) )         dapt.addValue((short)0,S+j,c);
+              else if( dapt.binColumn(c) ) dapt.addValue((float)ary.datad(bits,j,c), S+j, c);
+              else {
                 long v = ary.data(bits,j,c);
                 v -= ary._cols[c]._min;
                 dapt.addValue((short)v, S+j, c);
               }
-            }
           }
         }
       });
-
       start_row += rows;
     }
     ForkJoinTask.invokeAll(dataInhaleJobs);
     Utils.pln("[RF] Inhale done in " + t_inhale);
-
     return dapt;
   }
 
@@ -137,10 +123,7 @@ class DABuilder {
               if( ary.isNA(bits, j, col)) continue ROWS;
               else if( /* FIXME ary._cols[col].isFloat() && */  Float.isInfinite((float) ary.datad(bits, j, col))) continue ROWS;
 
-            for(int col : colIds) {
-              assert !Float.isInfinite((float) ary.datad(bits, j, col)) : ary._cols[col].isFloat();
-              dapt.addValueRaw((float)ary.datad(bits,j,col), j + S, col);
-            }
+            for(int col: colIds) dapt.addValueRaw((float)ary.datad(bits,j,col), j+S, col);
           }
         }
       });
@@ -150,13 +133,8 @@ class DABuilder {
 
     // Now do binning.
     jobs.clear();
-    for(final int col : colIds) {
-      jobs.add(new RecursiveAction() {
-        @Override protected void compute() {
-          dapt.computeBins(col);
-        }
-      });
-    }
+    for(final int col : colIds)
+      jobs.add(new RecursiveAction() {@Override protected void compute() { dapt.computeBins(col); } });
     ForkJoinTask.invokeAll(jobs);
   }
 }
