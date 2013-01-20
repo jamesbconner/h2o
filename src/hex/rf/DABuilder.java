@@ -82,7 +82,8 @@ class DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int c = 0; c < ncolumns; ++c)  // Bail out of broken rows in not-ignored columns
-              if( ! dapt.isValid(ary,bits,j,c)) {
+             if( !dapt.ignore(c) && ary.isNA(bits,j,c)) {
+/*         if( ! dapt.isValid(ary,bits,j,c)) {  FIXME  */
                 dapt.setBad(S+j);
                 continue ROWS;
               }
@@ -121,7 +122,9 @@ class DABuilder {
           ROWS: for(int j = 0; j < rows; ++j) {
             for(int col : colIds)
               if( ary.isNA(bits, j, col)) continue ROWS;
-              else if( /* FIXME ary._cols[col].isFloat() && */  Float.isInfinite((float) ary.datad(bits, j, col))) continue ROWS;
+          /*    else if( / * FIXME ary._cols[col].isFloat() && * /  Float.isInfinite((float) ary.datad(bits, j, col))) continue ROWS;
+           FIXME
+           */
 
             for(int col: colIds) dapt.addValueRaw((float)ary.datad(bits,j,col), j+S, col);
           }
