@@ -112,41 +112,6 @@ public class Data implements Iterable<Row> {
   }
 
 
-  private int[] sample_resevoir(double bagSizePct, long seed, int numrows ) {
-    // Resevoir Sampling.  First fill with sequential valid rows.
-    // i ranges from 0 to rows() (all the data).
-    // j    is the number of *valid* rows seen so far.
-    // rows is the number of *valid* rows total.
-    // invariant:  size/rows==bagSizePct
-    /* NOTE: Before changing used generator think about which kind of random generator you need:
-     * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
-    Random r = Utils.getRNG(seed);
-    int rows = rows();
-    int size = bagsz(rows,bagSizePct);
-    int[] sample = MemoryManager.malloc4(size);
-    int i = 0, j = 0;
-    for( ; j<size; i++ )                 // Until we get 'size' valid rows
-      if( _data.classOf(i) == -1 )       // Invalid row?
-        size = bagsz(--rows,bagSizePct); // Toss out from row-cnt & sample-size
-      else sample[j++] = i;              // Keep valid row
-    // Resample the rest.
-    for( ; i < rows(); i++ ) {
-      if( _data.classOf(i) == -1 ) {     // Invalid row?
-        size = bagsz(--rows,bagSizePct); // Toss out from row-cnt & sample-size
-      } else {                           // Valid row; sample it
-        // Resevoir Sampling: pick the next value from 0 to #rows seen so far
-        // but it is an INCLUSIVE pick, so pre-increment j.  Imagine the
-        // degenerate case of size=1 - from 100 rows.  We want to pick a single
-        // final row at random.  At this point sample[0]=0 and j=1 (1 valid
-        // row).  r.nextInt(1) will always yield a 0... which forces this
-        // die-roll to pick row 1 over row 0, and row 0 can never be picked.
-        int p = r.nextInt(++j); // Roll a dice for all valid rows
-        if( p < size ) sample[p] = i;
-      }
-    }
-    return Arrays.copyOf(sample,size); // Trim out bad rows
-  }
-
   // Roll a fair die for sampling, resetting the random die every numrows
   private int[] sample_fair(double bagSizePct, long seed, int numrows ) {
     Random r = null;

@@ -4,10 +4,9 @@ import hex.rf.Tree.StatType;
 
 import java.util.*;
 
-import jsr166y.RecursiveAction;
 import water.*;
-import water.Timer;
 import water.ValueArray.Column;
+import water.Timer;
 
 /** Distributed RandomForest */
 public final class DRF extends water.DRemoteTask {
@@ -225,7 +224,7 @@ public final class DRF extends water.DRemoteTask {
     for( long i=0; i<num_chunks; i++ ) {
       H2ONode nod = ary.getChunk(i)._h2o;
       // FIXME this is adhoc solution
-      nodes.add(nod != null ? nod : H2O.CLOUD.SELF);
+      nodes.add(nod != null ? nod : H2O.SELF);
       if( nodes.size() == num_nodes ) // All of them?
         break;                        // Done
     }
