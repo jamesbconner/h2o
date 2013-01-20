@@ -59,24 +59,30 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     cstring = "\n"
     # the dict keys are column headers if they exist...how to order those?
     # check if 0 exists, if not, assume it's column headers
+    # FIX! this is a little ugly.. jira addresses issue: 
+    # https://0xdata.atlassian.net/browse/HEX-451
+    cList = []
     if u'0' in coefficients:
         for c in range(len(coefficients)):
+            value = coefficients[unicode(c)]
             if c!=y:
-                cstring = cstring + "%s: %.5e   " % (c, coefficients[unicode(c)])
+                cList.append(value)
+                cstring = cstring + "%s: %.5e   " % (c, value)
             
     else:
         # instead, sort the keys? Get a list of tuple k/v pairs and sort
         items = coefficients.items()
         items.sort()
-        for key, value in items:
-            cstring = cstring + "%s: %.5e   " % (key, value)
+        for c, value in items:
+            cList.append(value)
+            cstring = cstring + "%s: %.5e   " % (c, value)
     
     print cstring
     print "intercept:\t", intercept
 
     # pick out the coefficent for the column we enabled.
 
-    # FIX! temporary hack to deal with disappaering/renaming columns in GLM
+    # FIX! temporary hack to deal with disappearing/renaming columns in GLM
     if colX is not None:
         absXCoeff = abs(float(coefficients[str(colX)]))
         self.assertGreater(absXCoeff, 1e-18, (
@@ -106,7 +112,6 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # something is broken
     # intercept is in there too, but this will get it okay
     # just sum the abs value  up..look for greater than 0
-
     s = 0.0
     for c in coefficients:
         v = coefficients[c]
@@ -116,7 +121,7 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
             ))
 
     
-    return warnings
+    return (warnings, cList, intercept)
 
 
 # compare this glm to last one. since the files are concatenations, 
