@@ -8,14 +8,13 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 def generate_rand_equation(colCount, SEED):
     r1 = random.Random(SEED)
     coefficients = []
-        #y = 1/(1 + exp(-(sum(coefficients*x)+intercept))
+    # y = 1/(1 + exp(-(sum(coefficients*x)+intercept))
     for j in range(colCount):
         # ri = r1.randint(-1,1)
-        ri = r1.uniform(-1,1)
-        coefficients.append(ri)
+        rif = r1.uniform(-1,1)
+        coefficients.append(rif)
 
     ### ri = r1.randint(-1,1)
-    ri = r1.uniform(-1,1)
     ### intercept = (ri)
     intercept =  -0.25
     print "Expected coefficients:", coefficients
@@ -114,15 +113,15 @@ class Basic(unittest.TestCase):
 
             y = colCount
             kwargs = {'y': y, 'norm': 'ELASTIC', 'max_iter': 50, 'case': 'NaN',
-                    'lambda1': 1e5,
-                    'lambda2': 1e5,
+                    'lambda1': 100000,
+                    'lambda2': 100000,
                     'alpha': 1.0,
                     'rho': 1e3,
                     'weight': 1.0,
                     'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'xval': 2,
+                    'xval': 0,
                     'beta_eps': 1e-4,
                     'thresholds': 0.5,
                     }
