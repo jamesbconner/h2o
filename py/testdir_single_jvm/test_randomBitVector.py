@@ -6,18 +6,24 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i
 
 exprList = [
         # keep it less than 6 so we can see all the values with an inspect?
+        (6,0,6, 'a.hex = randomBitVector(6,0,9)'),
+        (6,1,5, 'a.hex = randomBitVector(6,1,9)'),
         (6,2,4, 'a.hex = randomBitVector(6,2,9)'),
+        (6,3,3, 'a.hex = randomBitVector(6,3,9)'),
+        (6,4,2, 'a.hex = randomBitVector(6,4,9)'),
+        (6,5,1, 'a.hex = randomBitVector(6,5,9)'),
+        (6,6,0, 'a.hex = randomBitVector(6,6,9)'),
     ]
 
 def exec_expr(node, execExpr, trial, resultKey="Result.hex"):
         start = time.time()
         resultExec = h2o_cmd.runExecOnly(node, expression=execExpr, timeoutSecs=70)
-        print (resultExec)
+        h2o.verboseprint(resultExec)
         h2o.verboseprint('exec took', time.time() - start, 'seconds')
 
         print ("\nfirst look at the default Result key")
         defaultInspect = h2o_cmd.runInspect(None,"Result.hex")
-        print (h2o.dump_json(defaultInspect))
+        print(h2o.dump_json(defaultInspect))
 
         ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
         ### if (h2o.check_sandbox_for_errors()):
@@ -41,7 +47,7 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_randomBitVector(self):
-        h2b.browseTheCloud()
+        ### h2b.browseTheCloud()
 
         trial = 0
         for (expectedRows, expectedOnes, expectedZeroes, execExpr) in exprList:
@@ -88,12 +94,12 @@ class Basic(unittest.TestCase):
 
             min = columnsDict["min"]
             max = columnsDict["max"]
-            mean = columnsDict["max"]
-            print min, max, mean, execExpr
+            mean = columnsDict["mean"]
+            print "min:", min, " max:", max, " mean:", mean, execExpr
             sys.stdout.write('.')
             sys.stdout.flush()
 
-            h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
+            ### h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
             trial += 1
 
 
