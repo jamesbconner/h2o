@@ -5,9 +5,7 @@ import hex.rng.H2ORandomRNG.RNGKind;
 import java.io.File;
 import java.util.*;
 
-import test.RFDriver;
 import test.TestUtil;
-import test.RFDriver.OptArgs;
 import water.*;
 import water.Timer;
 

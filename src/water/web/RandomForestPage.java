@@ -5,7 +5,6 @@ import hex.rf.Tree.StatType;
 
 import java.util.*;
 
-import test.RFDriver;
 import water.*;
 import water.ValueArray.Column;
 
@@ -156,7 +155,7 @@ public class RandomForestPage extends H2OPage {
 
     Map<Integer,Integer>  strata = null;
     if(stratify && p.containsKey("strata"))
-      strata = RFDriver.parseStrata(p.getProperty("strata").trim());
+      strata = RandomForest.parseStrata(p.getProperty("strata").trim());
 
     // Pick columns to ignore
     String igz = p.getProperty(IGNORE_COL);
