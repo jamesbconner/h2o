@@ -116,7 +116,7 @@ final class DataAdapter  {
   public boolean isValid(ValueArray va, AutoBuffer ab, int row, int col) {
     if (ignore(col)) return false;
     if (va.isNA(ab,row,col)) return false;
-    if (!_c[col]._isFloat) return true;
+// FIXME    if (!_c[col]._isFloat) return true;
     float f =(float) va.datad(ab,row,col);
     if (Float.isInfinite(f)) return false;
     return true;

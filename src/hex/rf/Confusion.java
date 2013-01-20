@@ -175,7 +175,7 @@ public class Confusion extends MRTask {
         for(int c = 0; c < cols.length; ++c)
           if ( icols[c]) continue;
           else if( _data.isNA(bits, i, cols[c])) continue ROWS;
-          else if( cols[c].isFloat() &&  Float.isInfinite((float) _data.datad(bits, i, cols[c]))) continue ROWS;
+          else if( /*cols[c].isFloat() && */ Float.isInfinite((float) _data.datad(bits, i, cols[c]))) continue ROWS;
 
         // Skip row used during training
         if( _computeOOB &&  r.nextFloat() < _model._sample ) continue ROWS;
