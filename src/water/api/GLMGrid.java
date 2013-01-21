@@ -23,7 +23,7 @@ public class GLMGrid extends Request {
 
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
-  public static final String JSON_GLM_CASE_REL = "caseRel";
+  public static final String JSON_GLM_CASE_MODE = "caseMode";
   public static final String JSON_GLM_LINK = "link";
   public static final String JSON_GLM_FAMILY = "family";
 
@@ -44,7 +44,7 @@ public class GLMGrid extends Request {
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.binomial,true);
   protected final LinkArg _link = new LinkArg(_family,JSON_GLM_LINK);
 
-  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y, _family, JSON_GLM_CASE_REL,CaseMode.none);
+  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y, _family, JSON_GLM_CASE_MODE,CaseMode.none);
   protected final CaseSelect _case = new CaseSelect(_key,_y,_caseMode,JSON_GLM_CASE);
   protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
 

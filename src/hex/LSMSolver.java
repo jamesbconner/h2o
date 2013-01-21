@@ -19,7 +19,11 @@ public final class LSMSolver extends Iced {
     return _lambda != 0;
   }
 
-  public LSMSolver () {}
+  public LSMSolver () {
+    _rho = 0;
+    _alpha = 0;
+    _lambda = 0;
+  }
 
   public static LSMSolver makeSolver(){
     return new LSMSolver();
@@ -70,11 +74,12 @@ public final class LSMSolver extends Iced {
 
   public double [] solve(Matrix xx, Matrix xy) {
     double lambda = _lambda*(1-_alpha) + _rho;
+    System.out.println("_lambda = " + + _lambda + ", lambda = " + lambda);
     final int N = xx.getRowDimension();
     for(int i = 0; i < N-1; ++i)
       xx.set(i, i, xx.get(i,i)+lambda);
     CholeskyDecomposition lu = new CholeskyDecomposition(xx);
-    if(_alpha == 0) // no l1 penalty
+    if(_alpha == 0 || _lambda == 0) // no l1 penalty
       return lu.solve(xy).getColumnPackedCopy();
 
     final double ABSTOL = Math.sqrt(N) * 1e-4;

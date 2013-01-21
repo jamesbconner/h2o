@@ -30,7 +30,7 @@ class Basic(unittest.TestCase):
     def test_D_GenParity1(self):
         trees = 50
         h2o_cmd.runRF(trees=50, timeoutSecs=15, 
-                csvPathname = h2o.find_file('smalldata/parity_128_4_91_quad.data'))
+                csvPathname = h2o.find_file('smalldata/parity_128_4_100_quad.data'))
 
 if __name__ == '__main__':
     h2o.unit_main()

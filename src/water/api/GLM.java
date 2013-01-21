@@ -39,14 +39,13 @@ public class GLM extends Request {
   public static final String JSON_GLM_WEIGHT = "weight";
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
-  public static final String JSON_GLM_CASE_REL = "caseRel";
+  public static final String JSON_GLM_CASE_MODE = "caseMode";
   public static final String JSON_GLM_LINK = "link";
 
   public static final String JSON_ROWS = "rows";
   public static final String JSON_TIME = "time";
   public static final String JSON_COEFFICIENTS = "coefficients";
 
-  //protected final H2OHexKey _previousModelKey = new H2OHexKey(JSON_PREVIOUS_MODEL_KEY);
   protected final H2OHexKey _key = new H2OHexKey(KEY);
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
   protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
@@ -68,7 +67,7 @@ public class GLM extends Request {
   protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
   protected final Real _caseWeight = new Real(JSON_GLM_WEIGHT,1.0);
-  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y,_family, JSON_GLM_CASE_REL,CaseMode.none);
+  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y,_family, JSON_GLM_CASE_MODE,CaseMode.none);
   protected final CaseSelect _case = new CaseSelect(_key,_y,_caseMode,JSON_GLM_CASE);
   protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
