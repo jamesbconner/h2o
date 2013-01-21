@@ -74,7 +74,6 @@ public final class LSMSolver extends Iced {
 
   public double [] solve(Matrix xx, Matrix xy) {
     double lambda = _lambda*(1-_alpha) + _rho;
-    System.out.println("_lambda = " + + _lambda + ", lambda = " + lambda);
     final int N = xx.getRowDimension();
     for(int i = 0; i < N-1; ++i)
       xx.set(i, i, xx.get(i,i)+lambda);
