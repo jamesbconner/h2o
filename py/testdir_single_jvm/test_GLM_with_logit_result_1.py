@@ -11,19 +11,24 @@ def generate_rand_equation(colCount, SEED):
     # y = 1/(1 + exp(-(sum(coefficients*x)+intercept))
     for j in range(colCount):
         # ri = r1.randint(-1,1)
-        rif = r1.uniform(-1,1)
-        coefficients.append(rif)
+        rif = r1.uniform(0,1)
+        # FIX! temporary try fixed = col+1
+        # coefficients.append(rif)
+        coefficients.append(j+1)
+        # coefficients.append(2 + 2*(j%2))
+
 
     ### ri = r1.randint(-1,1)
     ### intercept = (ri)
     intercept =  -0.25
+    intercept =  0
     print "Expected coefficients:", coefficients
     print "Expected intercept:", intercept
 
-    return(coefficients, intercept)
+    return(coefficients, intercept) 
 
-# FIX! random noise on coefficients? randomly force 5% to 0?
-#y = 1/(1 + math.exp(-(sum(coefficients*x)+intercept))
+# FIX! random noise on coefficients? randomly force 5% to 0?  
+#y = 1/(1 + math.exp(-(sum(coefficients*x)+intercept)) 
 def generate_binomial_from_eqn_and_data(coefficients, intercept, rowData, noise=None):
     # FIX! think about using noise on some of the rowData
     cx = [a*b for a,b in zip(coefficients, rowData)]
@@ -33,7 +38,7 @@ def generate_binomial_from_eqn_and_data(coefficients, intercept, rowData, noise=
     ### print y
     if (y<0 or y>1):
         raise Exception("Generated y result is should be between 0 and 1: " + y)
-    if (y>=0.5):
+    if (y>=0.75):
         return (1,y)
     else:
         return (0,y)
@@ -48,7 +53,8 @@ def write_syn_dataset(csvPathname, rowCount, colCount, coefficients, intercept, 
     for i in range(rowCount):
         rowData = []
         for j in range(colCount):
-            ri = r1.randint(0,1)
+            ri = r1.randint(0,1) 
+            # ri = r1.triangular(0,1,j/colCount)
             rowData.append(ri)
 
         (binomial, actual) = generate_binomial_from_eqn_and_data(coefficients, intercept, rowData, noise=noise)
@@ -86,7 +92,7 @@ class Basic(unittest.TestCase):
     def test_GLM_many_cols(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
-            (10000, 5, 'cA', 300), 
+            (100000, 5, 'cA', 300), 
             ]
 
         ### h2b.browseTheCloud()
@@ -112,7 +118,7 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             y = colCount
-            kwargs = {'y': y, 'norm': 'ELASTIC', 'max_iter': 50, 'case': 'NaN',
+            kwargs = {'y': y, 'norm': 'ELASTIC', 'max_iter': 60, 'case': 'NaN',
                     'lambda1': 100000,
                     'lambda2': 100000,
                     'alpha': 1.0,
@@ -121,7 +127,7 @@ class Basic(unittest.TestCase):
                     'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'xval': 0,
+                    'xval': 3,
                     'beta_eps': 1e-4,
                     'thresholds': 0.5,
                     }

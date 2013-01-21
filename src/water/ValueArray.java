@@ -126,6 +126,8 @@ public class ValueArray extends Iced {
     return sb.toString();
   }
 
+
+  /**Returns the width of a row.*/
   public int rowSize() { return _rowsize; }
   public long numRows() { return _numrows; }
   public int numCols() { return _cols.length; }
@@ -200,12 +202,8 @@ public class ValueArray extends Iced {
     public Column(long len) {
       _min=0; _max=255; _mean=128; _n = len; _scale=1; _size=1;
     }
-
-    public final boolean isFloat() { return _scale > 1; } // really ??
-
-    public final boolean isScaled() {
-      return _scale != 1;
-    }
+    public final boolean isFloat() { return _size < 0 || _scale != 1; }
+    public final boolean isScaled() { return _scale != 1; }
   }
 
   // Get a usable pile-o-bits

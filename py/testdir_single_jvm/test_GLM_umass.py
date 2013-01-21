@@ -19,19 +19,20 @@ class Basic(unittest.TestCase):
         # filename, Y, timeoutSecs
         # fix. the ones with comments may want to be a gaussian?
         csvFilenameList = [
-            # ('cgd.dat', None, 10, None)
+            ('cgd.dat', 'gaussian', 12, 5, None),
             ('chdage.dat', 'binomial', 2, 5, None),
-            # hangs during parse for some reason
-            # ('clslowbwt.dat', 7, 5, None),
+    
+            # leave out ID and birth weight
+            ('clslowbwt.dat', 'binomial', 7, 5, '1,2,3,4,5'),
             ('icu.dat', 'binomial', 1, 5, None),
             # need to exclude col 0 (ID) and col 10 (bwt)
             # but -x doesn't work..so do 2:9...range doesn't work? FIX!
             ('lowbwt.dat', 'binomial', 1, 5, '2,3,4,5,6,7,8,9'),
             ('lowbwtm11.dat', 'binomial', 1, 5, None),
-            # ('meexp.dat', None, 5, None),
+            ('meexp.dat', 'gaussian', 3, 5, None),
             ('nhanes3.dat', 'binomial', 15, 5, None),
-            # ('pbc.dat', None, 5, None),
-            # ('pharynx.dat', None, 5, None),
+            ('pbc.dat', 'gaussian', 1, 5, None),
+            ('pharynx.dat', 'gaussian', 12, 5, None),
             ('pros.dat', 'binomial', 1, 5, None),
             ('uis.dat', 'binomial', 8, 5, None),
             ]
@@ -43,7 +44,7 @@ class Basic(unittest.TestCase):
             h2o_util.file_strip_trailing_spaces(csvPathname1, csvPathname2)
 
             kwargs = {'xval': 0, 'case': 'NaN', 'y': y, \
-                    'family': family, 'norm': 'NONE', 'lambda1': 1e-8, 'link': 'familyDefault'}
+                    'family': family, 'norm': 'NONE', 'rho': 10, 'lambda1': 1e4, 'link': 'familyDefault'}
             if x is not None:
                 kwargs['x'] = x
 

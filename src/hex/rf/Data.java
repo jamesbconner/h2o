@@ -129,7 +129,7 @@ public class Data implements Iterable<Row> {
         cnt=numrows-1;          //
         if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
       }
-      if( _data.classOf(i) != -1 && r.nextFloat() < f ) {
+      if( ! _data.badRow(i)  && r.nextFloat() < f ) {
         if( j == sample.length ) sample = Arrays.copyOfRange(sample,0,(int)(sample.length*1.2));
         sample[j++] = i;
       }
@@ -143,7 +143,7 @@ public class Data implements Iterable<Row> {
     int iWidth = iEnd - iStart;
     for(int i = 0; i < n; ++i){
       int candidate = iStart + r.nextInt(iWidth);
-      while(_data.classOf(candidate) == -1){
+      while(_data.badRow(candidate)){
         if(candidate == iStart)candidate = iStart + iWidth;
         --candidate;
       }

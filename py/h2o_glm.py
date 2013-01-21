@@ -64,8 +64,8 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     cList = []
     if u'0' in coefficients:
         for c in range(len(coefficients)):
-            value = coefficients[unicode(c)]
             if c!=y:
+                value = coefficients[unicode(c)]
                 cList.append(value)
                 cstring = cstring + "%s: %.5e   " % (c, value)
             

@@ -10,7 +10,8 @@ def define_params():
     paramDict = {
         # 'x': ['0:3','14:17','5:10',0,1,15,33],
         'x': [0,1,15,33],
-        'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
+        # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
+        'family': [None, 'gaussian', 'binomial', 'poisson'],
         'xval': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         # 'norm': [None,'L1', 'L2'],
@@ -41,14 +42,15 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_GLM_params_rand2(self):
+    def test_GLM_params_rand2_8977501266014959103(self):
         # csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         csvPathname = h2o.find_file('smalldata/covtype/covtype.20k.data')
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
 
         # for determinism, I guess we should spit out the seed?
         # random.seed(SEED)
-        SEED = random.randint(0, sys.maxint)
+        # SEED = random.randint(0, sys.maxint)
+        SEED = 8977501266014959103
         # if you have to force to redo a test
         # SEED =
         random.seed(SEED)
@@ -61,7 +63,7 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details
             # in the json(below)
-            kwargs = {'y': 54, 'norm': 'L2', 'case': 1}
+            kwargs = {'y': 54, 'norm': 'L2', 'lambda1': 1e4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

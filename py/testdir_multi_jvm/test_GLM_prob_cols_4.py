@@ -1,28 +1,43 @@
+from __future__ import division
 import unittest
-import random, sys, time, os
+import random, sys, time, os, math
 sys.path.extend(['.','..','py'])
 
-# FIX! add cases with shuffled data!
 import h2o, h2o_cmd, h2o_hosts, h2o_glm
 import h2o_browse as h2b, h2o_import as h2i, h2o_exec as h2e
 
-def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
+def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
+    # do we need more than one random generator?
     r1 = random.Random(SEED)
     r2 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
         rowData = []
+        rowTotal = 0
         for j in range(colCount):
-            ri1 = int(r1.triangular(0,4,2.5))
-            rowData.append(ri1)
+            # http://docs.scipy.org/doc/numpy/reference/generated/numpy.random.triangular.html
+            # except order here is low/high/mode
+            ri1 = r1.triangular(0,3,1.5)
+            ri1Int = int(round(ri1,0))
+            rowData.append(ri1Int)
+            rowTotal += ri1
 
-        rowTotal = sum(rowData)
+        if translateList is not None:
+            for i, iNum in enumerate(rowData):
+                rowData[i] = translateList[iNum]
+
         result = r2.randint(0,1)
 
-        ### print colCount, rowTotal, result
+        resultStr = "%5.3f" % result
+        ### print colCount, rowTotal, resultStr, result
+
         rowDataStr = map(str,rowData)
-        rowDataStr.append(str(result))
+        rowDataStr.append(resultStr)
+        # add the output twice, to try to match to it?
+        # can't duplicate output in input, perfect separation, failure to converge
+        ## rowDataStr.append(resultStr)
+
         rowDataCsv = ",".join(rowDataStr)
         dsf.write(rowDataCsv + "\n")
 
@@ -30,6 +45,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
 paramDict = {
     'family': ['binomial'],
+    # 'norm': ['ELASTIC'],
     'norm': ['L2'],
     'lambda_1': [1.0E-5],
     'lambda_2': [1.0E-8],
@@ -42,11 +58,11 @@ paramDict = {
     # 'case': [None],
     # 'link': [familyDefault],
     'xval': [2],
-    'expand_cat': [1],
+    'expand_cat': [0],
     'beta_eps': [1.0E-4],
     }
 
-class Basic(unittest.TestCase):
+class test_GLM_prob_cols_4(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global SEED
@@ -57,7 +73,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(3)
+            h2o.build_cloud(2,java_heap_GB=7,use_flatfile=True)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
@@ -65,23 +81,17 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_GLM_many_cols_int2cat(self):
+    def test_categorical_expand_and_probability_output(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
+        translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
-            (10000,  10, 'cA', 100),
-            (10000,  20, 'cB', 200),
-            (10000,  30, 'cC', 300),
-            (10000,  40, 'cD', 400),
-            (10000,  50, 'cE', 500),
+            (7919,  10, 'cA', 600),
+            (7919,  53, 'cA', 600),
+            (2659,  1049, 'cB', 600),
+            (1187,  523, 'cC', 600),
             ]
 
         ### h2b.browseTheCloud()
-
-        # we're going to do a special exec across all the columns to turn them into enums
-        # including the duplicate of the output!
-        exprList = [
-                '<keyX>= colSwap(<keyX>,<col1>,factor(<keyX>[<col1>]))',
-            ]
 
         for (rowCount, colCount, key2, timeoutSecs) in tryList:
             SEEDPERFILE = random.randint(0, sys.maxint)
@@ -89,39 +99,33 @@ class Basic(unittest.TestCase):
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
             print "\nCreating random", csvPathname
-            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE)
-            parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=10)
+            write_syn_dataset(csvPathname, rowCount, colCount, SEEDPERFILE, translateList)
+
+            print "\nUpload and parse", csvPathname
+            parseKey = h2o_cmd.parseFile(None, csvPathname, key2=key2, timeoutSecs=240, retryDelaySecs=0.5)
             print csvFilename, 'parse time:', parseKey['response']['time']
             print "Parse result['destination_key']:", parseKey['destination_key']
 
+            # We should be able to see the parse result?
             inspect = h2o_cmd.runInspect(None, parseKey['destination_key'])
             print "\n" + csvFilename
-
-            print "\nNow running the int 2 enum exec command across all input cols"
-            colResultList = h2e.exec_expr_list_across_cols(None, exprList, key2, maxCol=colCount, 
-                timeoutSecs=4, incrementingResult=False)
-            print "\nexec colResultList", colResultList
 
             paramDict2 = {}
             for k in paramDict:
                 paramDict2[k] = paramDict[k][0]
-            # since we add the output twice, it's no longer colCount-1
+
             y = colCount
-            kwargs = {'y': y, 'max_iter': 50, 'case': 1}
+            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
             kwargs.update(paramDict2)
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            # only col y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
+            # only col Y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
             print "y:", y 
+            # FIX! bug was dropped coefficients if constant column is dropped
+            ### h2o_glm.simpleCheckGLM(self, glm, Y-2, **kwargs)
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
-
-            if not h2o.browse_disable:
-                h2b.browseJsonHistoryAsUrlLastMatch("GLM")
-                time.sleep(3)
-                h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
-                time.sleep(3)
 
 if __name__ == '__main__':
     h2o.unit_main()

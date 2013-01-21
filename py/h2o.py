@@ -238,25 +238,27 @@ def write_flatfile(node_count=2, base_port=54321, hosts=None):
 
 
 def check_port_group(baseport):
+    # UPDATE: don't do this any more
     # for now, only check for jenkins or kevin
-    username = getpass.getuser()
-    if username=='jenkins' or username=='kevin' or username=='michal':
-        # assumes you want to know about 3 ports starting at baseport
-        command1Split = ['netstat', '-anp']
-        command2Split = ['egrep']
-        # colon so only match ports. space at end? so no submatches
-        command2Split.append("(" + str(baseport) + "|" + str(baseport+1) + "|" + str(baseport+2) + ")")
-        command3Split = ['wc','-l']
+    if (1==0):
+        username = getpass.getuser()
+        if username=='jenkins' or username=='kevin' or username=='michal':
+            # assumes you want to know about 3 ports starting at baseport
+            command1Split = ['netstat', '-anp']
+            command2Split = ['egrep']
+            # colon so only match ports. space at end? so no submatches
+            command2Split.append("(%s | %s | %s)" % (baseport, baseport+1, baseport+2) )
+            command3Split = ['wc','-l']
 
-        print "Checking 3 ports starting at ", baseport
-        print ' '.join(command2Split)
+            print "Checking 3 ports starting at ", baseport
+            print ' '.join(command2Split)
 
-        # use netstat thru subprocess
-        p1 = Popen(command1Split, stdout=PIPE)
-        p2 = Popen(command2Split, stdin=p1.stdout, stdout=PIPE)
-        p3 = Popen(command3Split, stdin=p2.stdout, stdout=PIPE)
-        output = p3.communicate()[0]
-        print output
+            # use netstat thru subprocess
+            p1 = Popen(command1Split, stdout=PIPE)
+            p2 = Popen(command2Split, stdin=p1.stdout, stdout=PIPE)
+            p3 = Popen(command3Split, stdin=p2.stdout, stdout=PIPE)
+            output = p3.communicate()[0]
+            print output
 
 # node_count is per host if hosts is specified.
 def build_cloud(node_count=2, base_port=54321, hosts=None, 
@@ -576,7 +578,7 @@ class H2O(object):
             prefetch=False,
             params={"key": key})
 
-    def poll_url(self, response, timeoutSecs=10, retryDelaySecs=0.2):
+    def poll_url(self, response, timeoutSecs=10, retryDelaySecs=0.5):
         url = self.__url(response['redirect_request'])
         args = response['redirect_request_args']
         status = 'poll'
@@ -597,7 +599,7 @@ class H2O(object):
             if ((time.time()-start)>timeoutSecs):
                 # show what we're polling with 
                 argsStr =  '&'.join(['%s=%s' % (k,v) for (k,v) in args.items()])
-                emsg = "Timeout while polling. status: " + status + " url: " + url + "?" + argsStr
+                emsg = "Timeout: %d secs while polling. status: %s, url: %s?%s" % (timeoutSecs, status, url, argsStr)
                 raise Exception(emsg)
             count += 1
         return r
@@ -646,7 +648,7 @@ class H2O(object):
         if a['response']['redirect_request']!='ParseProgress':
             print dump_json(a)
             raise Exception('H2O parse redirect is not ParseProgress. Parse json response precedes.')
-        a = self.poll_url(a['response'], timeoutSecs=timeoutSecs, retryDelaySecs=0.2)
+        a = self.poll_url(a['response'], timeoutSecs=timeoutSecs, retryDelaySecs=0.5)
         verboseprint("\nParse result:", dump_json(a))
         return a
 

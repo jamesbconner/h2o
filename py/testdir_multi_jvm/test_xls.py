@@ -13,16 +13,16 @@ class TestExcel(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_iris_xls(self):
-        h2o_cmd.runRF(None, h2o.find_dataset('iris/iris.xls'))
+        h2o_cmd.runRF(None, h2o.find_dataset('iris/iris.xls'), timeoutSecs=5)
 
     def test_iris_xlsx(self):
-        h2o_cmd.runRF(None, h2o.find_dataset('iris/iris.xlsx'))
+        h2o_cmd.runRF(None, h2o.find_dataset('iris/iris.xlsx'), timeoutSecs=5)
 
     def test_poker_xls(self):
-        h2o_cmd.runRF(None, h2o.find_dataset('poker/poker-hand-testing.xls'))
+        h2o_cmd.runRF(None, h2o.find_dataset('poker/poker-hand-testing.xls'), timeoutSecs=10)
 
     def test_poker_xlsx(self):
-        h2o_cmd.runRF(None, h2o.find_dataset('poker/poker-hand-testing.xlsx'))
+        h2o_cmd.runRF(None, h2o.find_dataset('poker/poker-hand-testing.xlsx'), timeoutSecs=60)
 
 if __name__ == '__main__':
     h2o.unit_main()
