@@ -44,7 +44,6 @@ class Basic(unittest.TestCase):
             h2o_util.file_strip_trailing_spaces(csvPathname1, csvPathname2)
 
             kwargs = {'xval': 0, 'case': 'NaN', 'y': y, \
-                
                     'family': family, 'norm': 'NONE', 'rho': 10, 'lambda1': 1e4, 'link': 'familyDefault'}
             if x is not None:
                 kwargs['x'] = x

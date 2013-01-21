@@ -25,13 +25,12 @@ def test_regress(x):
 
     fit=stats.lm(formula)
 
-    coeffs=array(fit[0])
-    resids=array(fit[1])
-    fitted_vals=array(fit[4])
-
+    coeffs = stats.coef(fit)
+    resids = stats.residuals(fit)    
+    fitted_vals = stats.fitted(fit)
     modsum = base.summary(fit)
-    rsquared = array(modsum[7])
-    se = array(modsum.rx2('coefficients')[2:4])
+    rsquared = modsum.rx2('r.squared')
+    se = modsum.rx2('coefficients')[2:4]
 
     print "coeffs:", coeffs
     print "resids:", resids
