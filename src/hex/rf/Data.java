@@ -14,7 +14,7 @@ public class Data implements Iterable<Row> {
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(_index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i));
+      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i)).append(',');
       return sb.toString();
     }
     public int numClasses() { return classes(); }
@@ -29,13 +29,20 @@ public class Data implements Iterable<Row> {
   /** Returns new Data object that stores all adapter's rows unchanged.   */
   public static Data make(DataAdapter da) { return new Data(da); }
 
-  protected Data(DataAdapter da) { _data = da; }
+  protected Data(DataAdapter da) {
+    _data = da;
+    _columnInfo = new ColumnInfo[_data.columns()];
+    for(int i = 0; i<_columnInfo.length; i++) {
+      _columnInfo[i] = _data.ignore(i) ? null : new ColumnInfo(i);
+    }
+  }
 
   protected int start()          { return 0;                   }
   protected int end()            { return _data._numRows;      }
   public int badRows()           { return _data._badRows;      }
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
+  public int available_columns() { return _data.available_columns(); }
   public int classes()           { return _data.classes();     }
   public long seed()             { return _data.seed();        }
   public long dataId()           { return _data.dataId();      }
@@ -61,6 +68,7 @@ public class Data implements Iterable<Row> {
     final Row row = new Row();
     int[] permutation = getPermutationArray();
     int l = start(), r = end() - 1;
+
     while (l <= r) {
       int permIdx = row._index = permutation[l];
       if (node.isIn(row)) {
@@ -75,8 +83,14 @@ public class Data implements Iterable<Row> {
     assert r+1 == l;
     ls.applyClassWeights();     // Weight the distributions
     rs.applyClassWeights();     // Weight the distributions
+    ColumnInfo[] linfo = _columnInfo.clone();
+    ColumnInfo[] rinfo = _columnInfo.clone();
+    linfo[node._column]= linfo[node._column].left(node._split);
+    rinfo[node._column]= rinfo[node._column].right(node._split);
     result[0]= new Subset(this, permutation, start(), l);
     result[1]= new Subset(this, permutation, l,   end());
+    result[0]._columnInfo = linfo;
+    result[1]._columnInfo = rinfo;
   }
 
   public Data sampleWithReplacement(double bagSizePct, short[] complement) {
@@ -97,41 +111,6 @@ public class Data implements Iterable<Row> {
     return new Subset(this, sample, 0, sample.length);
   }
 
-
-  private int[] sample_resevoir(double bagSizePct, long seed, int numrows ) {
-    // Resevoir Sampling.  First fill with sequential valid rows.
-    // i ranges from 0 to rows() (all the data).
-    // j    is the number of *valid* rows seen so far.
-    // rows is the number of *valid* rows total.
-    // invariant:  size/rows==bagSizePct
-    /* NOTE: Before changing used generator think about which kind of random generator you need:
-     * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
-    Random r = Utils.getRNG(seed);
-    int rows = rows();
-    int size = bagsz(rows,bagSizePct);
-    int[] sample = MemoryManager.malloc4(size);
-    int i = 0, j = 0;
-    for( ; j<size; i++ )                 // Until we get 'size' valid rows
-      if( _data.classOf(i) == -1 )       // Invalid row?
-        size = bagsz(--rows,bagSizePct); // Toss out from row-cnt & sample-size
-      else sample[j++] = i;              // Keep valid row
-    // Resample the rest.
-    for( ; i < rows(); i++ ) {
-      if( _data.classOf(i) == -1 ) {     // Invalid row?
-        size = bagsz(--rows,bagSizePct); // Toss out from row-cnt & sample-size
-      } else {                           // Valid row; sample it
-        // Resevoir Sampling: pick the next value from 0 to #rows seen so far
-        // but it is an INCLUSIVE pick, so pre-increment j.  Imagine the
-        // degenerate case of size=1 - from 100 rows.  We want to pick a single
-        // final row at random.  At this point sample[0]=0 and j=1 (1 valid
-        // row).  r.nextInt(1) will always yield a 0... which forces this
-        // die-roll to pick row 1 over row 0, and row 0 can never be picked.
-        int p = r.nextInt(++j); // Roll a dice for all valid rows
-        if( p < size ) sample[p] = i;
-      }
-    }
-    return Arrays.copyOf(sample,size); // Trim out bad rows
-  }
 
   // Roll a fair die for sampling, resetting the random die every numrows
   private int[] sample_fair(double bagSizePct, long seed, int numrows ) {
@@ -211,6 +190,33 @@ public class Data implements Iterable<Row> {
     for( int i = 0; i < perm.length; ++i ) perm[i] = i;
     return perm;
   }
+
+  public int colMinIdx(int i) { return _columnInfo[i].min; }
+  public int colMaxIdx(int i) { return _columnInfo[i].max; }
+
+  class ColumnInfo {
+    private final int col;
+    int min, max;
+    ColumnInfo(int col_) { col=col_; max = _data.columnArity(col_) - 1; }
+    ColumnInfo left(int idx) {
+      ColumnInfo res = new ColumnInfo(col);
+      res.max = idx < max ? idx : max;
+      res.min = min;
+      return res;
+    }
+    ColumnInfo right(int idx) {
+      ColumnInfo res = new ColumnInfo(col);
+      res.min = idx >= min ? (idx+1) : min;
+      res.max = max;
+      return res;
+    }
+    int min() { return min; }
+    int max() { return max; }
+
+    public String toString() { return  col +  "["+ min +","+ max + "]"; }
+  }
+
+  ColumnInfo[] _columnInfo;
 }
 
 class Subset extends Data {

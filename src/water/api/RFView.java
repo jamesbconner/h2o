@@ -15,7 +15,7 @@ public class RFView extends Request {
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(WEIGHTS, _dataKey, _classCol, 1);
   protected final Bool _oobee = new Bool(OOBEE,false,"Out of bag errors");
-  protected final HexColumnSelect _ignore = new HexColumnSelect(IGNORE, _dataKey, _classCol);
+  protected final HexColumnSelect _ignore = new HexNonClassColumnSelect(IGNORE, _dataKey, _classCol);
   protected final Bool _noCM = new Bool(NO_CM, false,"Do not produce confusion matrix");
   protected final Bool _clearCM = new Bool(JSON_CLEAR_CM, false, "Clear cache of model confusion matrices");
 
@@ -51,7 +51,7 @@ public class RFView extends Request {
       Confusion confusion = Confusion.make(model, _dataKey.value()._key, _classCol.value(), ignores, weights, _oobee.value());
       response.addProperty(JSON_CONFUSION_KEY, confusion.keyFor().toString());
       // if the matrix is valid, report it in the JSON
-      if (confusion.isValid()) {
+      if (confusion.isValid() && finished > 0) {
         finished += 1;
         JsonObject cm = new JsonObject();
         JsonArray cmHeader = new JsonArray();
@@ -83,9 +83,7 @@ public class RFView extends Request {
     }
     response.add(Constants.TREES,trees);
 
-    JsonObject pollArgs = argumentsToJson();
-    //pollArgs.addProperty(JSON_NO_CM,"1"); // not yet - CM runs in the same thread TODO
-    Response r = (finished == tasks) ? Response.done(response) : Response.poll(response, finished, tasks, pollArgs);
+    Response r = (finished == tasks) ? Response.done(response) : Response.poll(response, finished, tasks);
     r.setBuilder(JSON_CM, new ConfusionMatrixBuilder());
     r.setBuilder(Constants.TREES, new TreeListBuilder());
     return r;
@@ -105,16 +103,20 @@ public class RFView extends Request {
 
   public class TreeListBuilder extends ObjectBuilder {
     @Override public String build(Response response, JsonObject t, String contextName) {
-      StringBuilder sb = new StringBuilder();
-      sb.append("<h3>Trees</h3>");
-      sb.append(t.get(Constants.TREE_COUNT)).append(" trees with min/max/mean depth of ");
-      stats(sb, t.get(TREE_DEPTH )).append(" and leaf of ");
-      stats(sb, t.get(TREE_LEAVES)).append(".<br>");
       int n = t.get(Constants.TREE_COUNT).getAsInt();
-      for( int i = 0; i < n; ++i ) {
-        sb.append(RFTreeView.link(_modelKey.value(), i,
-            _dataKey.value(), _classCol.value(),
-            Integer.toString(i))).append(" ");
+      StringBuilder sb = new StringBuilder();
+      if (n > 0) {
+        sb.append("<h3>Trees</h3>");
+        sb.append(t.get(Constants.TREE_COUNT)).append(" trees with min/max/mean depth of ");
+        stats(sb, t.get(TREE_DEPTH )).append(" and leaf of ");
+        stats(sb, t.get(TREE_LEAVES)).append(".<br>");
+        for( int i = 0; i < n; ++i ) {
+          sb.append(RFTreeView.link(_modelKey.value(), i,
+              _dataKey.value(), _classCol.value(),
+              Integer.toString(i+1))).append(" ");
+        }
+      } else {
+        sb.append("<h3>No trees yet...</h3>");
       }
       return sb.toString();
     }

@@ -21,7 +21,14 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     y = "10"
     x = ""
     # NOTE: hastie has two values, -1 and 1. To make H2O work if two valued and not 0,1 have
-    kwargs = {'x': x, 'y':  y, 'case': '1', 'destination_key': 'gg'}
+    kwargs = {
+        'x': x, 'y':  y, 'case': '1', 
+        'destination_key': 'gg',
+        'lambda1': '1e-8:1e3:100',
+        'lambda2': '1e-8:1e3:100',
+        'alpha': '1,1.4,1.8',
+        'thresholds': '0:1:0.01'
+        }
 
     start = time.time() 
     print "\nStarting GLMGrid of", csvFilename
@@ -48,7 +55,7 @@ class Basic(unittest.TestCase):
         # in other tests. (catdata?)
         csvFilename = "1mx10_hastie_10_2.data.gz"
         csvPathname = h2o.find_dataset('logreg' + '/' + csvFilename)
-        glm_doit(self,csvFilename, csvPathname, timeoutSecs=120)
+        glm_doit(self,csvFilename, csvPathname, timeoutSecs=300)
 
         filename1x = "hastie_1x.data"
         pathname1x = SYNDATASETS_DIR + '/' + filename1x
@@ -66,7 +73,7 @@ class Basic(unittest.TestCase):
         print "Iterating 1 times on this last one for perf compare"
         for i in range(1):
             print "\nTrial #", i, "of", filename4x
-            glm_doit(self,filename4x, pathname4x, timeoutSecs=120)
+            glm_doit(self,filename4x, pathname4x, timeoutSecs=300)
 
 if __name__ == '__main__':
     h2o.unit_main()

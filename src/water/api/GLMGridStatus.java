@@ -1,7 +1,11 @@
 package water.api;
 
 import hex.*;
-import hex.GLMSolver.*;
+import hex.GLMSolver.CaseMode;
+import hex.GLMSolver.Family;
+import hex.GLMSolver.GLMModel;
+import hex.GLMSolver.GLMParams;
+import hex.RowVecTask.Sampling;
 
 import java.util.*;
 
@@ -27,16 +31,13 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
 
   Key _datakey;               // Datakey to work on
   transient ValueArray _ary;  // Expanded VA bits
-  int _ccol;                  // Y column; class
   int _xs[];                  // Array of columns to use
-  double _caseval;            // Selected CASE/factor value or NaN usually
-  double [] _lambda1s;        // Grid search values
-  double [] _lambda2s;        // Grid search values
-  double [] _rhos;            // Grid search values
+  double [] _lambdas;        // Grid search values
   double [] _ts;
   double [] _alphas;          // Grid search values
   int _xfold;
 
+  GLMParams _glmp;
 
   // Progress: Count of GLM models computed so far.
   int _progress;
@@ -48,19 +49,16 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // Fraction complete
   float progress() { return (float)_progress/_ms.length; }
 
-  public GLMGridStatus(Key taskey, ValueArray va, int ccol, int[] xs, double[]l1s, double[]l2s, double[]rs, double[]as, double[]thresholds, double caseval, int xfold) {
+  public GLMGridStatus(Key taskey, ValueArray va, GLMParams glmp, int[] xs, double[]ls,  double[]as, double[]thresholds, int xfold) {
     _taskey = taskey;           // Capture the args
     _ary = va;                  // VA is large, and already in a Key so make it transient
     _datakey = va._key;         // ... and use the datakey instead when reloading
-    _ccol = ccol;
+    _glmp = glmp;
     _xs = xs;
-    _caseval = caseval;
-    _lambda1s = l1s;
-    _lambda2s = l2s;
-    _rhos     = rs;
+    _lambdas = ls;
     _ts       = thresholds;
     _alphas   = as;
-    _max = l1s.length*l2s.length*rs.length*as.length;
+    _max = ls.length*as.length;
     _ms = new Key[_max];
     _xfold = xfold;
   }
@@ -72,19 +70,16 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // field; web threads also atomically-read the progress&ms fields.
   public void compute() {
     assert _working == true;
-    final int O = _alphas.length;
-    final int N = _rhos.length*O;
-    final int M = _lambda2s.length*N;
+    final int N = _alphas.length;
+    GLMModel m = new GLMModel(ValueArray.value(_datakey),_xs,null,_glmp,null);
 
     OUTER:
-    for( int l1=0; l1<_lambda1s.length; l1++ )
-      for( int l2=0; l2<_lambda2s.length; l2++ )
-        for( int r=0; r<_rhos.length; r++ )
+    for( int l1=1; l1<= _lambdas.length; l1++ )
           for( int a=0; a<_alphas.length; a++) {
             if( _stop ) break OUTER;
-            final GLMModel m = do_task(l1,l2,r,a); // Do a step; get a model
+            m = do_task(m,_lambdas.length-l1,a); // Do a step; get a model
             // Now update this Status.
-            update(_taskey,m,l1*M+l2*N+r*O+a);
+            update(_taskey,m,(_lambdas.length-l1)*N+a);
             // Fetch over the 'this' all new bits.  Mostly witness updates to
             // _progress and _stop fields.
             UKV.get(_taskey,this);
@@ -121,47 +116,20 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // ---
   // Do a single step (blocking).
   // In this case, run 1 GLM model.
-  private GLMModel do_task( int l1, int l2, int rho, int alpha) {
-    // Default GLM args.  Binomial, logit, expanded cats, max iter, etc
-    GLMParams glmp = new GLMParams();
-    glmp._f = GLMSolver.Family.binomial;
-    glmp._l = glmp._f.defaultLink;
-    glmp._expandCat = true;
-    glmp._maxIter = 20;
-    glmp._betaEps = GLMSolver.DEFAULT_BETA_EPS;
-    glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
-    glmp._familyArgs[GLMSolver.FAMILY_ARGS_CASE] = _caseval;
-
-    // The 'step' is the folded iterator
-    // Break the step into iterations over the various parameters.
-
-
-    // Always use elastic-net, but set the various parameters
-    LSMSolver lsms = LSMSolver.makeElasticNetSolver(_lambda1s[l1], _lambda2s[l2], _rhos[rho], _alphas[alpha]);
-    GLMSolver glm = new GLMSolver(lsms, glmp);
-    int [] colIds = createColumns();
-    GLMModel m = glm.computeGLM(_ary, colIds, null);
+  private GLMModel do_task(GLMModel m,int l, int alpha) {
+    m = m.clone();
+    m._solver = LSMSolver.makeSolver(_lambdas[l], _alphas[alpha]);
+    m.compute();
     if(_xfold <= 1)
       m.validateOn(_ary, null,_ts);
     else
-      glm.xvalidate(m,_ary, createColumns(),_xfold,_ts);
+      m.xvalidate(_xfold,_ts);
     return m;
   }
   // ---
 
   String model_name( int step ) {
     return "Model "+step;
-  }
-
-  private int[] createColumns() {
-    BitSet cols = new BitSet();
-    for( int i : _xs ) cols.set(i);
-    int[] res = new int[cols.cardinality()+1];
-    int x=0;
-    for( int i = cols.nextSetBit(0); i >= 0; i = cols.nextSetBit(i+1))
-      res[x++] = i;
-    res[x] = _ccol;
-    return res;
   }
 
   public Iterable<GLMModel> computedModels(){
@@ -176,24 +144,25 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
         if(v2 == null)return -1;
         GLMModel m1 = new GLMModel().read(new AutoBuffer(v1.get()));
         GLMModel m2 = new GLMModel().read(new AutoBuffer(v2.get()));
-        double cval1 = m1._vals[0].AUC(), cval2 = m2._vals[0].AUC();
-        if(cval1 == cval2){
-          if(m1._vals[0].classError() != null){
-            double [] cerr1 = m1._vals[0].classError(), cerr2 = m2._vals[0].classError();
-            assert (cerr2 != null && cerr1.length == cerr2.length);
-            for(int i = 0; i < cerr1.length; ++i){
-              cval1 += cerr1[i];
-              cval2 += cerr2[i];
+        if(m1._glmParams._f == Family.binomial){
+          double cval1 = m1._vals[0].AUC(), cval2 = m2._vals[0].AUC();
+          if(cval1 == cval2){
+            if(m1._vals[0].classError() != null){
+              double [] cerr1 = m1._vals[0].classError(), cerr2 = m2._vals[0].classError();
+              assert (cerr2 != null && cerr1.length == cerr2.length);
+              for(int i = 0; i < cerr1.length; ++i){
+                cval1 += cerr1[i];
+                cval2 += cerr2[i];
+              }
+            }
+            if(cval1 == cval2){
+              cval1 = m1._vals[0].err();
+              cval2 = m2._vals[0].err();
             }
           }
-          if(cval1 == cval2){
-            cval1 = m1._vals[0].err();
-            cval2 = m2._vals[0].err();
-          }
-        }
-
-        if(cval1 == cval2)return 0;
-        return (cval2 < cval1)?-1:1;
+          return Double.compare(cval2, cval1);
+       } else
+         return Double.compare(m1._vals[0]._err,m2._vals[0]._err);
       }
     });
     final Key [] keys = _ms;

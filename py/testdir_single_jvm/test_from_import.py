@@ -37,8 +37,8 @@ class Basic(unittest.TestCase):
             # "a200m.csv",
             # "a400m.csv",
             # "a600m.csv",
-            "billion_rows.csv.gz",
-            "new-poker-hand.full.311M.txt.gz",
+            # "billion_rows.csv.gz",
+            # "new-poker-hand.full.311M.txt.gz",
             ]
         # csvFilenameList = random.sample(csvFilenameAll,1)
         csvFilenameList = csvFilenameAll

@@ -56,7 +56,7 @@ public class GLM extends H2OPage {
       res._expandCat = true;
     res._maxIter = getIntArg(p, "ITER", GLMSolver.DEFAULT_MAX_ITER);
     res._betaEps = getDoubleArg(p, "betaEps", GLMSolver.DEFAULT_BETA_EPS);
-    res._familyArgs = getFamilyArgs(res._f, p);
+
     return res;
   }
 
@@ -75,18 +75,15 @@ public class GLM extends H2OPage {
     String norm = p.getProperty("norm");
     if(norm.equalsIgnoreCase("L1")){
       double lambda = getDoubleArg(p, "lambda",LSMSolver.DEFAULT_LAMBDA);
-      double rho = getDoubleArg(p, "rho",LSMSolver.DEFAULT_RHO);
       double alpha = getDoubleArg(p, "",LSMSolver.DEFAULT_ALPHA);
-      return LSMSolver.makeL1Solver(lambda, rho, alpha);
+      return LSMSolver.makeSolver(lambda, alpha);
     } else if(norm.equalsIgnoreCase("L2")){
       double lambda = getDoubleArg(p, "lambda",LSMSolver.DEFAULT_LAMBDA);
       return LSMSolver.makeL2Solver(lambda);
     } else if(norm.equalsIgnoreCase("ENET")){
       double lambda = getDoubleArg(p, "lambda",LSMSolver.DEFAULT_LAMBDA);
-      double lambda2 = getDoubleArg(p, "lambda2",LSMSolver.DEFAULT_LAMBDA2);
-      double rho = getDoubleArg(p, "rho",LSMSolver.DEFAULT_RHO);
       double alpha = getDoubleArg(p, "",LSMSolver.DEFAULT_ALPHA);
-      return LSMSolver.makeElasticNetSolver(lambda, lambda2, rho, alpha);
+      return LSMSolver.makeSolver(lambda, alpha);
     } else
       throw new GLMInputException("unknown norm " + norm);
   }
@@ -151,19 +148,13 @@ public class GLM extends H2OPage {
       res.addProperty("key", ary._key.toString());
       res.addProperty("h2o", H2O.SELF.toString());
 
-      GLMParams glmParams = getGLMParams(p);
-      LSMSolver lsm = getLSMSolver(p);
-      GLMSolver glm = new GLMSolver(lsm, glmParams);
-      GLMModel m = glm.computeGLM(ary, columns, null);
+      GLMModel m = new GLMModel(ary, columns, getLSMSolver(p), getGLMParams(p), null);
       if( m.is_solved() ) m.validateOn(ary, null,thresholds);
       res.add("GLMModel", m.toJson());
 
       if( m.is_solved() && p.containsKey("xval") ) {
         int fold = getIntArg(p, "xval", 10);
-        JsonArray models = new JsonArray();
-        for(GLMModel xm:glm.xvalidate(m,ary, columns, fold,thresholds))
-          models.add(xm.toJson());
-        res.add("xval", models);
+        res.add("xval", m.xvalidate(fold,thresholds).toJson());
       }
     } catch( GLMInputException e1 ) {
       res.addProperty("error", "Invalid input:" + e1.getMessage());

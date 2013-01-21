@@ -11,13 +11,13 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_put_1m_keys(self):
+    def test_parse_file_loop(self):
         lenNodes = len(h2o.nodes)
         h2b.browseTheCloud()
 
         trial = 0
         for i in range(2):
-            for j in range(1,2000):
+            for j in range(1,10):
                 # spread the parse around the nodes. Note that keys are produced by H2O, so keys not resused
                 nodeX = random.randint(0,lenNodes-1) 
                 key = h2o_cmd.parseFile(h2o.nodes[nodeX],csvPathname=h2o.find_file("smalldata/logreg/prostate.csv"))

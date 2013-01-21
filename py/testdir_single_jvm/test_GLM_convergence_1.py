@@ -128,7 +128,7 @@ class Basic(unittest.TestCase):
                 print 'glm #', i, 'end on', csvPathname, 'took', time.time() - start, 'seconds'
                 # we can pass the warning, without stopping in the test, so we can 
                 # redo it in the browser for comparison
-                warnings = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
+                (warnings, c, i) = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
 
                 # print coefficients in col order. we know there is no header, 
                 # so using 0:53 will work on the dict

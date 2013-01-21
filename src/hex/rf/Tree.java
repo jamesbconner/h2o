@@ -14,12 +14,16 @@ import water.Timer;
 public class Tree extends CountedCompleter {
   static public enum StatType { ENTROPY, GINI };
 
-  /* Left and right seed initializer number for statistics */
+  /** Left and right seed initializer number for statistics */
   public static final long LTSS_INIT = 0xe779aef0a6fd0c16L;
   public static final long RTSS_INIT = 0x5e63c6377e5297a7L;
-  /* Left and right seed initializer number for subtrees */
+  /** Left and right seed initializer number for subtrees */
   public static final long RTS_INIT = 0xa7a34721109d3708L;
   public static final long LTS_INIT = 0x264ccf88cf4dec32L;
+  /** If the number of rows is higher then given number, fork-join is used to build
+   * subtrees, else subtrees are built sequentially
+   */
+  public static final int ROWS_FORK_TRESHOLD = 1<<11;
 
 
   final StatType _type;         // Flavor of split logic
@@ -74,7 +78,7 @@ public class Tree extends CountedCompleter {
           new EntropyStatistic(data,_numSplitFeatures, _seed, exclusiveSplitLimit);
       _stats[index].set(result);
     }
-    result.forget_features();   // All new features
+    result.forgetFeatures();   // All new features
     result.reset(data, seed);
     return result;
   }
@@ -95,7 +99,7 @@ public class Tree extends CountedCompleter {
       }
       sb.append(colname).append(':').append(usage).append("x");
       for (SplitInfo si : colSplitStats) {
-        sb.append(", ").append("<=").append(Utils.p2d(si.splitNode().split_value())).append('{').append(si.affectedLeaves()).append("} ");
+        sb.append(", <=").append(Utils.p2d(si.splitNode().split_value())).append('{').append(si.affectedLeaves()).append("}x"+si._used+" ");
       }
 
       sb.append('\n');
@@ -169,9 +173,14 @@ public class Tree extends CountedCompleter {
             nd._r = new LeafNode(rs._split, res[1].rows());
       else  fj1 = new  FJBuild(rs,res[1],_depth+1, _seed - RTS_INIT);
       // Recursively build the splits, in parallel
-      if( fj0 != null &&        (fj1!=null ) ) fj0.fork();
-      if( fj1 != null ) nd._r = fj1.compute();
-      if( fj0 != null ) nd._l = (fj1!=null ) ? fj0.join() : fj0.compute();
+      if (_data.rows() > ROWS_FORK_TRESHOLD) {
+        if( fj0 != null &&        (fj1!=null ) ) fj0.fork();
+        if( fj1 != null ) nd._r = fj1.compute();
+        if( fj0 != null ) nd._l = (fj1!=null ) ? fj0.join() : fj0.compute();
+      } else {
+        if( fj1 != null ) nd._r = fj1.compute();
+        if( fj0 != null ) nd._l = fj0.compute();
+      }
       /* Degenerate trees such as the following  can occur when an impossible split was found.
               y<=1.1        This is unusual enough to ignore.
               /    \
@@ -271,7 +280,7 @@ public class Tree extends CountedCompleter {
       if (splitInfo == null) {
         stats[_column].add(SplitInfo.info(this, _leaves));
       } else {
-        splitInfo._affectedLeaves += _leaves;
+        splitInfo._affectedLeaves += leaves();
         splitInfo._used += 1;
       }
       _l.computeStats(stats);

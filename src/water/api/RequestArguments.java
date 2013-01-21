@@ -1,14 +1,18 @@
 package water.api;
 
-import hex.GLMSolver.CaseMode;
+import hex.GLMSolver.*;
 import hex.rf.Model;
 
 import java.io.File;
 import java.util.*;
 
+import org.apache.poi.ss.formula.functions.Columns;
+
 import water.*;
+import water.ValueArray.Column;
 import water.web.RString;
 
+import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.gson.JsonObject;
@@ -735,20 +739,6 @@ public class RequestArguments extends RequestStatics {
   // MultipleCheckbox
   // ===========================================================================
 
-  private static final String _multipleCheckboxValueJS =
-            "  var str = ''\n"
-          + "  for (var i = 0; i < %NUMITEMS; ++i) {\n"
-          + "    var element = $('#%NAME'+i);\n"
-          + "    if (element.is(':checked')) {\n"
-          + "      if (str == '')\n"
-          + "        str = element.val();\n"
-          + "      else\n"
-          + "        str = str + ',' + element.val();\n"
-          + "    }\n"
-          + "  }\n"
-          + "  return str;\n"
-          ;
-
   /** Displays multiple checkboxes for different values. Returns a list of the
    * checked values separated by commas.
    */
@@ -1215,15 +1205,41 @@ public class RequestArguments extends RequestStatics {
   }
 
   public class CaseModeSelect extends EnumArgument<CaseMode> {
-    public CaseModeSelect(H2OHexKey key,H2OHexKeyCol classCol, String name, CaseMode defaultValue) {
+    public CaseModeSelect(H2OHexKey key,H2OHexKeyCol classCol, EnumArgument<Family> family, String name, CaseMode defaultValue) {
       super(name, defaultValue);
       addPrerequisite(_key = key);
       addPrerequisite(_classCol  = classCol);
+      addPrerequisite(_family  = family);
       setRefreshOnChange();
     }
+
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
+    public final EnumArgument<Family> _family;
 
+    @Override
+    public CaseMode defaultValue() {
+      if(_family.value() == Family.binomial){
+        Column c = _key.value()._cols[_classCol.value()];
+        if(c._min < 0 || c._max > 1) return CaseMode.gt;
+      }
+      return CaseMode.none;
+    }
+
+  }
+
+  class LinkArg extends EnumArgument<Link> {
+    final EnumArgument<Family> _f;
+
+    public LinkArg(EnumArgument<Family> f ,String name) {
+      super(name,f.defaultValue().defaultLink);
+      addPrerequisite(_f = f);
+    }
+
+    @Override
+    protected Link defaultValue() {
+      return _f.value().defaultLink;
+    }
   }
 
   // Binomial GLM 'case' selection.  Only useful for binomial GLM where the
@@ -1232,24 +1248,23 @@ public class RequestArguments extends RequestStatics {
   public class CaseSelect extends Real {
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
+    public final CaseModeSelect _caseMode;
 
 
-    public CaseSelect(H2OHexKey key, H2OHexKeyCol classCol, String name) {
+    public CaseSelect(H2OHexKey key, H2OHexKeyCol classCol, CaseModeSelect mode, String name) {
       super(name);
       addPrerequisite(_key= key);
       addPrerequisite(_classCol=classCol);
+      addPrerequisite(_caseMode = mode);
     }
 
     @Override protected Double defaultValue() {
-      ValueArray va = _key.value();
-      int classCol = _classCol.value();
-      ValueArray.Column C = va._cols[classCol];
-      return C._max;
+      if(_caseMode.value() == CaseMode.none)return Double.NaN;
+      Column c = _key.value()._cols[_classCol.value()];
+      return (_caseMode.value() == CaseMode.eq || Double.isNaN(c._mean))?c._max:c._mean;
     }
 
-    public void setValue(Double d){
-      record()._value = d;
-    }
+
     @Override protected Double parse(String input) throws IllegalArgumentException {
       // Set min & max at the last second, after key/column selection has been
       // cleared up
@@ -1294,7 +1309,7 @@ public class RequestArguments extends RequestStatics {
   public class EnumArgument<T extends Enum<T>> extends InputSelect<T> {
 
     protected final Class<T> _enumClass;
-    protected final T _defaultValue;
+    private final T _defaultValue;
 
 
     public EnumArgument(String name, T defaultValue, boolean refreshOnChange) {
@@ -1620,93 +1635,103 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // HexColumnSelect
-  // ---------------------------------------------------------------------------
-
   public class HexColumnSelect extends MultipleSelect<int[]> {
     public final H2OHexKey _key;
-    public final H2OHexKeyCol _avoid;
 
-    public HexColumnSelect(String name, H2OHexKey key, H2OHexKeyCol avoid) {
+    public HexColumnSelect(String name, H2OHexKey key) {
       super(name);
       addPrerequisite(_key = key);
-      _avoid = avoid;
-      if(_avoid != null)
-        addPrerequisite(_avoid);
     }
+
+    public boolean shouldIgnore(int i, ValueArray.Column ca ) { return false; }
+    public void checkLegality(int i, ValueArray.Column c) throws IllegalArgumentException { }
 
     @Override protected String[] selectValues() {
       ValueArray va = _key.value();
-      int avoid = -1, count = va._cols.length;
-      if(_avoid != null) {
-        avoid=_avoid.value();
-        count--;
-      }
-      String[] result = new String[count];
-      int j = 0;
+      List<String> res = Lists.newArrayList();
       for (int i = 0; i < va._cols.length; ++i) {
-        if (i == avoid)
-          continue;
-        result[j] = va._cols[i]._name == null ? String.valueOf(i) : va._cols[i]._name;
-        ++j;
+        if( shouldIgnore(i, va._cols[i]) ) continue;
+        res.add(Objects.firstNonNull(va._cols[i]._name, String.valueOf(i)));
       }
-      assert (j == result.length);
-      return result;
+      return res.toArray(new String[res.size()]);
     }
 
     @Override protected boolean isSelected(String value) {
       ValueArray va = _key.value();
       int[] val = value();
-      if (val == null)
-        return false;
-      int idx = vaColumnNameToIndex(va,value);
-      for (int i = 0; i < val.length; ++i)
-        if (val[i] == idx)
-          return true;
-      return false;
+      if (val == null) return false;
+      int idx = vaColumnNameToIndex(va, value);
+      return Ints.contains(val, idx);
     }
 
     @Override protected int[] parse(String input) throws IllegalArgumentException {
       ValueArray va = _key.value();
-      int avoid = _avoid != null ? _avoid.value() : -1;
       ArrayList<Integer> al = new ArrayList();
       for (String col : input.split(",")) {
         col = col.trim();
         int idx = vaColumnNameToIndex(va, col);
         if (idx == -1)
           throw new IllegalArgumentException("Column "+col+" not part of key "+va._key);
-        if (idx == avoid)
-          throw new IllegalArgumentException("Class column "+col+" cannot be selected");
         if (al.contains(idx))
-          throw new IllegalArgumentException("Column "+col+" is already selected.");
+          throw new IllegalArgumentException("Column "+col+" is already ignored.");
+        checkLegality(idx, va._cols[idx]);
         al.add(idx);
       }
-      int[] result = new int[al.size()];
-      for (int i = 0; i < result.length; ++i)
-        result[i] = al.get(i);
-      return result;
+      return Ints.toArray(al);
+    }
+
+    @Override protected int[] defaultValue() {
+      return new int[0];
+    }
+
+    @Override protected String queryDescription() {
+      return "Columns to select";
+    }
+  }
+
+  public class HexNonClassColumnSelect extends HexColumnSelect {
+    public final H2OHexKeyCol _classCol;
+
+    public HexNonClassColumnSelect(String name, H2OHexKey key, H2OHexKeyCol classCol) {
+      super(name, key);
+      addPrerequisite(_classCol = classCol);
+    }
+
+    @Override
+    public boolean shouldIgnore(int i, Column ca) {
+      return i == _classCol.value();
+    }
+
+    @Override
+    public void checkLegality(int i, Column c) throws IllegalArgumentException {
+      if( i == _classCol.value() )
+        throw new IllegalArgumentException("Class column "+i+" cannot be ignored");
+    }
+
+    @Override protected String queryDescription() {
+      return "Columns to ignored";
+    }
+  }
+
+  public class HexAllColumnSelect extends HexColumnSelect {
+    public HexAllColumnSelect(String name, H2OHexKey key) {
+      super(name, key);
     }
 
     @Override protected int[] defaultValue() {
       int[] cols = new int[_key.value()._cols.length];
-      for( int i = 0; i < cols.length; i++ )
-        cols[i]=i;
+      for( int i = 0; i < cols.length; i++ ) cols[i]=i;
       return cols;
-    }
-
-    @Override protected String queryDescription() {
-      return "Columns selection";
     }
   }
 
   // By default, all on - except *constant* columns
-  public class HexNonConstantColumnSelect extends HexColumnSelect {
+  public class HexNonConstantColumnSelect extends HexNonClassColumnSelect {
     public HexNonConstantColumnSelect(String name, H2OHexKey key, H2OHexKeyCol classCol) {
       super(name, key, classCol);
     }
     @Override protected int[] defaultValue() {
-      int classCol = _avoid.value();
+      int classCol = _classCol.value();
       ValueArray va = _key.value();
       List<Integer> res = Lists.newArrayList();
       for( int i=0; i<va._cols.length; i++ )

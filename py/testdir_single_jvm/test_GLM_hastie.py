@@ -18,12 +18,12 @@ import copy
 def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     print "\nStarting GLM of", csvFilename
     parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename, timeoutSecs=10)
-    y = "9"
+    y = "10"
     x = ""
     # Took xval out, because GLM doesn't include xval time and it's slow
     # wanted to compare GLM time to my measured time
     # hastie has two values 1,-1. need to specify case
-    kwargs = {'x': x, 'y':  y, 'case': -1}
+    kwargs = {'x': x, 'y':  y, 'case': -1, 'thresholds': 0.5}
 
     start = time.time()
     glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)

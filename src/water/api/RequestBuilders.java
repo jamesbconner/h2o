@@ -41,7 +41,7 @@ public class RequestBuilders extends RequestQueries {
     sb.append("<div class='row-fluid'>");
     sb.append("<div class='span12'>");
     sb.append(buildResponseHeader(response));
-    Builder builder = response.getBuilderFor("");
+    Builder builder = response.getBuilderFor(WEB_ROOT_OBJECT);
     if (builder == null) {
       sb.append("<h3>"+getClass().getSimpleName()+":</h3>");
       builder = OBJECT_BUILDER;

@@ -35,9 +35,9 @@ class Basic(unittest.TestCase):
             # ("a600m.csv", None),
             # ("100million_rows.csv,  None"),
             # ("200million_rows.csv", None),
-            ("billion_rows.csv.gz", 1),
+            # ("billion_rows.csv.gz", 1),
             # memory issue on one machine. no RF
-            ("new-poker-hand.full.311M.txt.gz", None),
+            # ("new-poker-hand.full.311M.txt.gz", None),
             ]
         # pop open a browser on the cloud
         h2b.browseTheCloud()

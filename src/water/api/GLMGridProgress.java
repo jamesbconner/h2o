@@ -1,7 +1,8 @@
 package water.api;
 
+import hex.GLMSolver.Family;
 import hex.GLMSolver.GLMModel;
-import hex.LSMSolver;
+import hex.*;
 
 import java.util.Map;
 
@@ -33,15 +34,17 @@ public class GLMGridProgress extends Request {
       JsonObject o = new JsonObject();
       LSMSolver lsm = m._solver;
       o.addProperty(KEY, m.key().toString());
-      o.addProperty(LAMBDA_1, lsm._lambda);
-      o.addProperty(LAMBDA_2, lsm._lambda2);
-      o.addProperty(RHO, lsm._rho);
+      o.addProperty(LAMBDA, lsm._lambda);
       o.addProperty(ALPHA, lsm._alpha);
-      o.addProperty(BEST_THRESHOLD, m._vals[0].bestThreshold());
-      o.addProperty(AUC, m._vals[0].AUC());
-      double[] classErr = m._vals[0].classError();
-      for( int j = 0; j < classErr.length; ++j ) {
-        o.addProperty(ERROR +"_"+ j, classErr[j]);
+      if(m._glmParams._f == Family.binomial){
+        o.addProperty(BEST_THRESHOLD, m._vals[0].bestThreshold());
+        o.addProperty(AUC, m._vals[0].AUC());
+        double[] classErr = m._vals[0].classError();
+        for( int j = 0; j < classErr.length; ++j ) {
+          o.addProperty(ERROR +"_"+ j, classErr[j]);
+        }
+      } else {
+        o.addProperty(ERROR, m._vals[0]._err);
       }
       JsonArray arr = new JsonArray();
       if( m._warnings != null ) {
@@ -68,9 +71,7 @@ public class GLMGridProgress extends Request {
   private static class GridBuilder2 extends ArrayBuilder {
     private final Map<String, String> _m = Maps.newHashMap(); {
       _m.put(KEY, "Model");
-      _m.put(LAMBDA_1, "&lambda;<sub>1</sub>");
-      _m.put(LAMBDA_2, "&lambda;<sub>2</sub>");
-      _m.put(RHO, "&rho;");
+      _m.put(LAMBDA, "&lambda;");
       _m.put(ALPHA, "&alpha;");
     }
     @Override

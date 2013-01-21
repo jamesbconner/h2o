@@ -5,6 +5,8 @@ import hex.RowVecTask.Sampling;
 import java.util.*;
 
 import water.*;
+import water.ValueArray.Column;
+import Jama.Matrix;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -19,6 +21,51 @@ public class GLMSolver {
     public GLMException(String msg){super(msg);}
   }
 
+
+  public enum CaseMode {
+    none("n/a"),
+    lt("<"),
+    gt(">"),
+    lte("<="),
+    gte(">="),
+    eq("=");
+    final String _str;
+
+    CaseMode(String str){
+      _str = str;
+    }
+    public String toString(){
+      return _str;
+    }
+
+    public String exp(double v){
+      switch(this){
+      case none:
+        return "n/a";
+      default:
+        return "x" + _str + v;
+      }
+    }
+
+    public final boolean isCase(double x, double y){
+      switch(this){
+      case lt:
+        return x < y;
+      case gt:
+        return x > y;
+      case lte:
+        return x <= y;
+      case gte:
+        return x >= y;
+      case eq:
+        return x == y;
+      default:
+        assert false;
+        return false;
+      }
+
+    }
+  }
   public static enum Link {
     familyDefault(0),
     identity(0),
@@ -166,7 +213,7 @@ public class GLMSolver {
   double [] _normSub;
   double [] _normMul;
 
-  public static class GLMModel extends Iced {
+  public static class GLMModel extends Iced implements Cloneable {
     public Key _dataset;
     Key _key;
     Sampling _s;
@@ -208,9 +255,24 @@ public class GLMSolver {
     }
     public GLMModel(){}
 
+    public GLMModel(GLMModel other){
+      _beta = other._beta;
+      _dataset = other._dataset;
+      _colIds = other._colIds;
+      _colNames = other._colNames;
+      _solver = other._solver;
+      _s = other._s;
+      _glmParams = other._glmParams;
+      _colOffsets = other._colOffsets;
+      _categoricals = other._categoricals;
+      _numeric = other._numeric;
+      _normMul = other._normMul;
+      _normSub = other._normSub;
+    }
+
     public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s) {
       _dataset = ary._key;
-
+      _beta = new double [colIds.length+1];
       ArrayList<Integer> validCols = new ArrayList<Integer>();
       for( int col : colIds )
         if(ary._cols[col]._max != ary._cols[col]._min)
@@ -225,7 +287,6 @@ public class GLMSolver {
       _solver = lsm;
       _s = s;
       _glmParams = params;
-
       int i = 0;
       int [] categoricals = new int[_colIds.length];
       int [] numeric = new int[_colIds.length];
@@ -243,41 +304,98 @@ public class GLMSolver {
           numeric[nnum++] = i;
         ++i;
       }
-
-
-
       _categoricals = Arrays.copyOf(categoricals, ncat);
       _numeric = Arrays.copyOf(numeric, nnum);
-
       int fullLen = _colIds.length + _colOffsets[_colIds.length];
       _beta = new double[fullLen];
       Arrays.fill(_beta, _glmParams._l.defaultBeta);
-      if(_solver.normalize()){
-        _normMul = new double[fullLen];
-        _normSub = new double[fullLen];
-        // TODO compute histogram and normalization values for categoricals
-        Arrays.fill(_normMul, 1.0);
-        Arrays.fill(_normSub, 0.0);
-        i = 0;
-        for(int j = 0; j < _colIds.length-1;++j){
-          int col = _colIds[j];
-          if(!(ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0)) {
-            int idx = j + _colOffsets[j];
-            _normSub[idx] = ary._cols[col]._mean;
-            if(ary._cols[col]._sigma != 0)
-              _normMul[idx] = 1.0/ary._cols[col]._sigma;
-          } else if(_glmParams._expandCat){
+      _normMul = new double[fullLen];
+      _normSub = new double[fullLen];
+      // TODO compute histogram and normalization values for categoricals
+      Arrays.fill(_normMul, 1.0);
+      Arrays.fill(_normSub, 0.0);
+      i = 0;
+      for(int j = 0; j < _colIds.length-1;++j){
+        int col = _colIds[j];
+        if(!(ary._cols[col]._domain != null && ary._cols[col]._domain.length > 0)) {
+          int idx = j + _colOffsets[j];
+          _normSub[idx] = ary._cols[col]._mean;
+          if(ary._cols[col]._sigma != 0)
+            _normMul[idx] = 1.0/ary._cols[col]._sigma;
+        } else if(_glmParams._expandCat){
 
-          }
         }
       }
     }
 
+    public GLMModel clone(){
+      return new GLMModel(this);
+    }
+
+    public void compute(){
+      // check if response variable is within range
+      if(_glmParams._f == Family.binomial){
+        ValueArray ary = ValueArray.value(_dataset);
+        Column ycol = ary._cols[_colIds[_colIds.length-1]];
+        if(ycol._min < 0 || ycol._max > 1){
+          if(_glmParams._caseMode == CaseMode.none)throw new GLMException("Response variable is out of (0,1) range for family=binomial. Pick different column or set case.");
+        }
+      }
+      _iterations = 0;
+      _isDone = false;
+      _vals = null;
+      GramMatrixTask gtask = null;
+      ArrayList<String> warns = new ArrayList();
+      long t1 = System.currentTimeMillis();
+   OUTER:
+      while(_iterations++ < _glmParams._maxIter ) {
+        gtask = new GramMatrixTask(this);
+        gtask._s = _s;
+        gtask.invoke(_dataset);
+        double [] beta = null;
+        for( int i = 0; i < 20; ++i) {
+          try {
+            Matrix xx = gtask._gram.getXX();
+            Matrix xy = gtask._gram.getXY();
+            beta = _solver.solve(xx,xy);
+            for(double d:beta)if(Double.isNaN(d) || Double.isInfinite(d)){
+              warns.add("Failed to converge!"); // TODO add penalty
+              break OUTER;
+            }
+            break;
+          } catch( RuntimeException e ) {
+            if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
+              throw e;
+            if(gtask._gram.hasNaNsOrInfs()){ // failed to converge
+              warns.add("Failed to converge!");
+              break OUTER;
+            }
+            _solver._rho = (_solver._rho == 0)?1e-8:10*_solver._rho;
+          }
+        }
+        if( beta == null ) {      // Failed after 20 goes?
+          warns.add("Cannot solve");
+          gtask = null;
+          break;
+        }
+        double diff = 0.0;
+        for(int i = 0; i < gtask._beta.length; ++i)
+          diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
+        _beta = beta;
+        _time = System.currentTimeMillis() - t1;
+        if(diff < _glmParams._betaEps)
+          break;
+      }
+      _beta = (gtask != null)?gtask._beta:null;
+      _isDone = true;
+      if(!warns.isEmpty())
+        _warnings = warns.toArray(new String[warns.size()]);
+    }
 
     public void validateOn(ValueArray ary, Sampling s){
       validateOn(ary, s,DEFAULT_THRESHOLDS);
     }
-    public void validateOn(ValueArray ary, Sampling s, double [] thresholds){
+    public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
       int [] colIds = new int [_colNames.length];
       int idx = 0;
         for(int j = 0; j < _colNames.length; ++j)
@@ -295,11 +413,12 @@ public class GLMSolver {
       valTsk._f = _glmParams._f;
       valTsk._l = _glmParams._l;
       valTsk._beta = _beta;
-      valTsk._familyArgs= _glmParams._familyArgs;
+      valTsk._caseMode = _glmParams._caseMode;
+      valTsk._caseVal = _glmParams._caseVal;
+
       valTsk._thresholds = thresholds;
       valTsk.invoke(ary._key);
       GLMValidation val = new GLMValidation(valTsk);
-//      val._beta = _beta;
       val._dataKey = ary._key;
       val._s = s;
       val._f = _glmParams._f;
@@ -312,9 +431,21 @@ public class GLMSolver {
         _vals = Arrays.copyOf(_vals, n+1);
         _vals[n] = val;
       }
+      return val;
     }
 
-
+    public GLMXValidation xvalidate(int folds, double [] thresholds) {
+      GLMModel [] models = new GLMModel[folds];
+      for(int i = 0; i < folds; ++i){
+        models[i] = new GLMModel(this);
+        models[i]._s = new Sampling(i,folds,false);
+        models[i].compute();
+        models[i].validateOn(ValueArray.value(_dataset), new Sampling(i, folds, true),thresholds);
+      }
+      GLMXValidation res = new GLMXValidation(models, ErrMetric.SUMC,thresholds);
+      _vals = new GLMValidation[]{res};
+      return res;
+    }
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
@@ -367,10 +498,12 @@ public class GLMSolver {
   public static class GLMParams extends Iced {
     public Family _f = Family.gaussian;
     public Link _l;
-    public double [] _familyArgs;
     public double _betaEps;
-    public int _maxIter;
+    public int _maxIter = 10;
     public boolean _expandCat = true; // Always on for now
+    public double _caseVal;
+    public double _caseWeight = 1.0;
+    public CaseMode _caseMode = CaseMode.none;
 
     public JsonObject toJson(){
       JsonObject res = new JsonObject();
@@ -378,117 +511,15 @@ public class GLMSolver {
       res.addProperty("link", _l.toString());
       res.addProperty("betaEps", _betaEps);
       res.addProperty("maxIter", _maxIter);
-      if(_familyArgs != null){
-        assert _f == Family.binomial;
-        res.addProperty("caseVal",_familyArgs[FAMILY_ARGS_CASE]);
-        res.addProperty("weight",_familyArgs[FAMILY_ARGS_WEIGHT]);
+      if(_caseMode != CaseMode.none){
+        res.addProperty("caseVal",_caseMode.exp(_caseVal));
+        res.addProperty("weight",_caseWeight);
       }
       return res;
     }
   }
 
   GLMParams _glmParams;
-
-  public GLMSolver(LSMSolver lsm, GLMParams glmParams){
-    _solver = lsm;
-    _glmParams = glmParams;
-  }
-
-  public GLMModel computeGLM(ValueArray ary, int [] colIds, Sampling s) {
-    // check range of response variable (y)
-    if(_glmParams._f == Family.binomial && Double.isNaN(_glmParams._familyArgs[FAMILY_ARGS_CASE])){
-      int ycol = colIds[colIds.length-1];
-      if(ary._cols[ycol]._max > 1 || ary._cols[ycol]._min < 0)
-        throw new GLMException("Response variable out of range, 0:1 range is required, got " + ary._cols[ycol]._min + ":" + ary._cols[ycol]._max);
-    }
-    GLMModel res = new GLMModel(ary,colIds,_solver,_glmParams,s);
-    GramMatrixTask gtask = null;
-    ArrayList<String> warns = new ArrayList();
-    long t1 = System.currentTimeMillis();
- OUTER:
-    while( res._iterations++ < _glmParams._maxIter ) {
-      gtask = new GramMatrixTask(res);
-      gtask._s = s;
-      gtask.invoke(ary._key);
-      double [] beta = null;
-      for( int i = 0; i < 20; ++i) {
-        try {
-          beta = _solver.solve(gtask._gram);
-          for(double d:beta)if(Double.isNaN(d) || Double.isInfinite(d)){
-            warns.add("Failed to converge!");
-            break OUTER;
-          }
-          break;
-        } catch( RuntimeException e ) {
-          if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
-            throw e;
-          if(gtask._gram.hasNaNsOrInfs()){
-            warns.add("Failed to converge!");
-            break OUTER;
-          }
-          switch(_solver._penalty) {
-          case NONE:
-            _solver._penalty = LSMSolver.Norm.L2;
-            _solver._lambda = 1e-8;
-            warns.add("Gram matrix is not SPD; adding L2 penalty of "+_solver._lambda);
-            break;
-          case L2:
-            _solver._lambda *= 10;
-            warns.add("Gram matrix is still not SPD; increasing L2 to penalty "+_solver._lambda);
-            break;
-          case L1:
-            _solver._penalty = LSMSolver.Norm.ELASTIC;
-            _solver._lambda2 = 1e-8;
-            warns.add("Gram matrix is not SPD; adding L2 penalty of "+_solver._lambda2);
-            break;
-          case ELASTIC:
-            _solver._lambda2 *= 10;
-            warns.add("Gram matrix is not SPD; increasing L2 penalty to "+_solver._lambda2);
-            break;
-          default:
-            throw new IllegalArgumentException();
-          }
-        }
-      }
-      if( beta == null ) {      // Failed after 20 goes?
-        warns.add("Cannot solve");
-        gtask = null;
-        break;
-      }
-      double diff = 0.0;
-      for(int i = 0; i < gtask._beta.length; ++i)
-        diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
-      res._beta = beta;
-      res._time = System.currentTimeMillis() - t1;
-      if(diff < _glmParams._betaEps)
-        break;
-    }
-    res._beta = (gtask != null)?gtask._beta:null;
-    res._isDone = true;
-    if(!warns.isEmpty())
-      res._warnings = warns.toArray(new String[warns.size()]);
-    return res;
-  }
-
-//  public static final double DTHRESHOLD_STEP = 0.01;
-//  public static final double DTHRESHOLD_LB = 0.01;
-//  public static final double DTHRESHOLD_UB = 0.99;
-  //public static final int N_THRESHOLD_POINTS = 1 + (int)((DTHRESHOLD_UB - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
-
-//  public static int getThresholdIdx(double t){
-//    if( 0 > t || t > 1) throw new Error("illegal threshold " + t);
-//    if(t <= DTHRESHOLD_LB) return 0;
-//    if(t >= DTHRESHOLD_UB) return N_THRESHOLD_POINTS-1;
-//    return (int) Math.round((t - DTHRESHOLD_LB)/DTHRESHOLD_STEP);
-//  }
-//
-//  public static double getThresholdValue(int idx){
-//    return DTHRESHOLD_LB + idx*DTHRESHOLD_STEP;
-//  }
-
-//  public static final double DEFAULT_THRESHOLD_VAL = 0.5;
-//  public static final int DEFAULT_THRESHOLD_IDX = getThresholdIdx(DEFAULT_THRESHOLD_VAL);
-
 
   public enum ErrMetric {
     MAXC,
@@ -622,32 +653,23 @@ public class GLMSolver {
     }
   }
 
-  public GLMModel [] xvalidate(GLMModel m, ValueArray ary, int [] colIds, int fold){
-    return xvalidate(m, ary, colIds, fold,DEFAULT_THRESHOLDS);
-  }
-  public GLMModel [] xvalidate(GLMModel m, ValueArray ary, int [] colIds, int fold, double [] thresholds) {
-    GLMModel [] models = new GLMModel[fold];
-    for(int i = 0; i < fold; ++i){
-      models[i] = computeGLM(ary, colIds, new Sampling(i, fold, false));
-      models[i].validateOn(ary, new Sampling(i, fold, true),thresholds);
-    }
-    m._vals = new GLMValidation[]{new GLMXValidation(models, ErrMetric.SUMC,thresholds)};
-    return models;
-  }
-
   public static class GramMatrixTask extends RowVecTask {
     Family _family;
     Link _link;
     double [] _beta;
-    double [] _familyArgs;
     GramMatrix _gram;
+    CaseMode _cMode;
+    double _cVal;
+    double _cWeight;
 
     public GramMatrixTask(GLMModel m){
       super(m._dataset,m._colIds);
       _family = m._glmParams._f;
       _link = m._glmParams._l;
+      _cMode = m._glmParams._caseMode;
+      _cVal = m._glmParams._caseVal;
+      _cWeight = m._glmParams._caseWeight;
       _beta = m._beta;
-      _familyArgs = m._glmParams._familyArgs;
       _normSub = m._normSub;
       _normMul = m._normMul;
       _colOffsets = m._colOffsets;
@@ -657,20 +679,15 @@ public class GLMSolver {
 
     public void processRow(double [] x, int [] indexes){
       double y = x[x.length-1];
-      // set the intercept
       double w = 1;
-      // For binomials over enum response variables, allow one case to be
-      // "success" and all other cases to be "fails".
-      if( _family == Family.binomial &&
-          !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) ) {
-        if( _familyArgs[FAMILY_ARGS_CASE] == y ) {
-          y = 1.0;              // Success case; map to 1
-          w = _familyArgs[FAMILY_ARGS_WEIGHT];
-        } else {
-          y = 0;                // Fail case; map to 0
-        }
+      if(_cMode != CaseMode.none) {
+        if(_cMode.isCase(y, _cVal)){
+          y = 1;
+          w = _cWeight;
+        } else
+          y = 0;
       }
-
+      // set the intercept
       x[x.length-1] = 1.0; // constant (Intercept)
       double gmu = 0;
       for(int i = 0; i < x.length; ++i) {
@@ -710,6 +727,8 @@ public class GLMSolver {
       else _gram = other._gram;
     }
   }
+
+
 
   public static final class ConfusionMatrix extends Iced {
     public long [][] _arr;
@@ -956,11 +975,13 @@ public class GLMSolver {
     double _deviance;
     double _nullDeviance;
     double [] _beta;
-    double [] _familyArgs;
     double [] _thresholds;
     ConfusionMatrix [] _cm;
     double _err;
     long _n;
+    double _w;
+    double _caseVal;
+    CaseMode _caseMode;
 
     public GLMValidationTask(Key aryKey, int [] colIds){
       super(aryKey,colIds);
@@ -982,10 +1003,8 @@ public class GLMSolver {
       for(int i = 0; i < x.length; ++i)
         ym += _beta[indexes[i]] * x[i];
       ym = _l.linkInv(ym);
-
-      if( _f == Family.binomial &&
-          !Double.isNaN(_familyArgs[FAMILY_ARGS_CASE]) )
-        yr = yr == _familyArgs[FAMILY_ARGS_CASE]?1:0;
+      if(_caseMode != CaseMode.none)
+        yr = _caseMode.isCase(yr, _caseVal)?1:0;
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {

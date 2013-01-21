@@ -173,7 +173,9 @@ public class Confusion extends MRTask {
       ROWS: for( int i = 0; i < rows; i++ ) {
         // Bail out of broken rows in not-ignored columns
         for(int c = 0; c < cols.length; ++c)
-          if( !icols[c] && _data.isNA(bits, i, cols[c])) continue ROWS;
+          if ( icols[c]) continue;
+          else if( _data.isNA(bits, i, cols[c])) continue ROWS;
+          else if( cols[c].isFloat() &&  Float.isInfinite((float) _data.datad(bits, i, cols[c]))) continue ROWS;
 
         // Skip row used during training
         if( _computeOOB &&  r.nextFloat() < _model._sample ) continue ROWS;

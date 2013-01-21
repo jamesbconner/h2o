@@ -25,8 +25,8 @@ public class MinorityClasses {
   //class c is considered to be minority class (ie all rows with this class will be replicated across ALL nodes)
   // iff H(c)/H(m) <= MINORITY_RATIO_THRESHOLD && H(c)/Nodes <= MINORITY_ABS_THRESHOLD,
   //     where H(c) is histogram value for class c, H(m) is histogram value for majority class, Nodes is number of nodes in the cloud
-  static final double MINORITY_RATIO_THRESHOLD = 0.1;
-  static final double MINORITY_ABS_THRESHOLD = 1000000;
+  //NOTE not used !!! static final double MINORITY_RATIO_THRESHOLD = 0.1;
+  //static final double MINORITY_ABS_THRESHOLD = 1000000;
 
   //class c is considered to be unbalanced (unevenly distributed) iff abs((Hn(c) - H(c)/Nodes)/H(c) > IMBALANCED_THRESHOLD for some node n
   static final double IMBALANCED_THRESHOLD = 0.1;
@@ -164,9 +164,9 @@ public class MinorityClasses {
       Column c = ary._cols[_classIdx];
       int rows = bits.remaining()/ary.rowSize();
       for(int i = 0; i < rows; ++i) {
-        if (!ary.isNA(bits, i, _classIdx)) {
-          ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
-        }
+        if (ary.isNA(bits, i, _classIdx)) continue;
+        if ( c.isFloat() &&  Float.isInfinite((float) ary.datad(bits, i,c))) continue;
+        ++_histogram[H2O.SELF.index()][(int)(ary.datad(bits, i, c) - c._min)];
       }
     }
 

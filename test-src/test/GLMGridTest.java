@@ -1,10 +1,13 @@
 package test;
 
-import hex.GLMSolver;
-import hex.LSMSolver;
-import org.junit.Test;
-import water.*;
+import hex.*;
+import hex.GLMSolver.GLMModel;
+
 import java.util.Arrays;
+
+import org.junit.Test;
+
+import water.*;
 
 // Test grid-search over GLM args
 public class GLMGridTest extends TestUtil {
@@ -14,15 +17,15 @@ public class GLMGridTest extends TestUtil {
     // Binomial (logistic) GLM solver
     glmp._f = GLMSolver.Family.binomial;
     glmp._l = glmp._f.defaultLink; // logit
-    glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
+    //glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
     glmp._betaEps = 0.000001;
     glmp._maxIter = 100;
-    GLMSolver glms = new GLMSolver(lsms,glmp);
 
     System.out.print(msg);
 
     // Solve it!
-    GLMSolver.GLMModel m = glms.computeGLM(va, cols, null);
+    GLMSolver.GLMModel m = new GLMModel(va, cols, lsms, glmp, null);
+    m.compute();
     if( m._warnings != null )
       for( String s : m._warnings )
         System.err.println(s);
@@ -73,7 +76,7 @@ public class GLMGridTest extends TestUtil {
       k1 = loadAndParseKey("h.hex","smalldata/hhp_107_01.data.gz"); final int class_col = 106;
       ValueArray va = ValueArray.value(DKV.get(k1));
       // Default normalization solver
-      LSMSolver lsms = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA, LSMSolver.DEFAULT_LAMBDA2, LSMSolver.DEFAULT_RHO, LSMSolver.DEFAULT_ALPHA);
+      LSMSolver lsms = LSMSolver.makeSolver(LSMSolver.DEFAULT_LAMBDA, 0.5);
       // Binomial (logistic) GLM solver
       GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
 

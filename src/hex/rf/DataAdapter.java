@@ -8,7 +8,7 @@ import water.ValueArray.Column;
 
 import com.google.common.primitives.Ints;
 
-class DataAdapter  {
+final class DataAdapter  {
   private final int _numClasses;
   int [] _intervalsStarts;
   int _badRows;
@@ -22,6 +22,8 @@ class DataAdapter  {
   public final double[] _classWt;
   /** Maximum arity for a column (not a hard limit) */
   final short _bin_limit;
+  /** Number of available columns */
+  private final int _available_columns;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
               long unique, long seed, short bin_limit, double[] classWt) {
@@ -36,6 +38,7 @@ class DataAdapter  {
 
     _classIdx = classCol;
     assert ignores.length < cols.length - 1;
+    int available_columns = 0;
     for( int i = 0; i < cols.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       Column c = cols[i];
@@ -43,14 +46,13 @@ class DataAdapter  {
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("[DA] Ignoring column " + i + " as all values are identical.");   }
       boolean raw = (c._size > 0 && !c.isScaled() && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
-      // FIXME: do not understand the meaning of the following line
-      raw = (i==_classIdx); // It is actually faster to ignore this "optimization"
-
+      raw = (i==_classIdx);
       C.ColType t = C.ColType.SHORT;
       if( raw && range <= 1 ) t = C.ColType.BOOL;
       else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
       boolean do_bin = !raw && !ignore;
       _c[i]= new C(c._name, rows, i==_classIdx, t, do_bin, ignore,_bin_limit, c._scale>1);
+      available_columns += !_c[i]._ignore ? 1 : 0;
       if( raw ) {
         _c[i]._smax = (short)range;
         _c[i]._min = (float)c._min;
@@ -61,6 +63,8 @@ class DataAdapter  {
     _numRows = rows;
     assert classWt == null || classWt.length==_numClasses;
     _classWt = classWt;
+    assert available_columns <= cols.length - ignores.length : "Avaiable columns are computed in wrong way!";
+    _available_columns = available_columns;
   }
   public void initIntervals(int n){
     _intervalsStarts = new int[n+1];
@@ -78,12 +82,11 @@ class DataAdapter  {
   public float unmap(int col, int idx){
     C c = _c[col];
     if ( !c._bin ) return idx + c._min;
-
     assert idx < c._binned2raw.length : "Trying to reference binned value out of binned2raw array!";
     float flo = c._binned2raw[idx+0]; // Convert to the original values
     float fhi = c._binned2raw[idx+1];
     float fmid = (flo+fhi)/2.0f; // Compute a split-value
-    assert flo < fmid && fmid < fhi; // Assert that the float will properly split
+    assert flo < fmid && fmid < fhi : "Values " + flo +","+fhi ; // Assert that the float will properly split
     return fmid;
   }
 
@@ -97,6 +100,8 @@ class DataAdapter  {
   public int classes()        { return _numClasses; }
   /** True if we should ignore column i. */
   public boolean ignore(int i){ return _c[i]._ignore; }
+  /** Number of available columns (number of columns - number of ignored columns) */
+  public final int available_columns()  { return _available_columns; }
 
   /** Returns the number of bins, i.e. the number of distinct values in the
    * column.  Zero if we are ignoring the column. */
@@ -107,6 +112,15 @@ class DataAdapter  {
 
   /** Return the array of all column names including ignored and class. */
   public String columnNames(int i) { return _c[i]._name; }
+
+  public boolean isValid(ValueArray va, AutoBuffer ab, int row, int col) {
+    if (ignore(col)) return false;
+    if (va.isNA(ab,row,col)) return false;
+    if (!_c[col]._isFloat) return true;
+    float f =(float) va.datad(ab,row,col);
+    if (Float.isInfinite(f)) return false;
+    return true;
+  }
 
   public void addValueRaw(float v, int row, int col){ _c[col].addRaw(v, row); }
 
