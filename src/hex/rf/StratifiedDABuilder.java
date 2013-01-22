@@ -70,24 +70,24 @@ public class StratifiedDABuilder extends DABuilder {
           continue ROWS;
         for( int col:_binColIds)
           if( !_dapt.ignore(col) && ! _dapt.isValid(_ary,bits, i, col) ) {
-            _dapt.setBad(outputRow); // FIXME I do not need to mark it bad (will be fixed in missing values fix)
+          //  _dapt.markBadValue(outputRow, col);
             continue ROWS;
           }
         for( int col:_rawColIds)
           if( !_dapt.ignore(col) && ! _dapt.isValid(_ary,bits, i, col) ) {
-            _dapt.setBad(outputRow);
+        //    _dapt.markBadValue(outputRow, col);
             continue ROWS;
           }
         ++indexes[c];
 
         if(_bin){
           for(int col:_binColIds)
-            _dapt.addValueRaw((float)_ary.datad(bits, i, col),outputRow,col);
+      ;//      _dapt.addValueRaw((float)_ary.datad(bits, i, col),outputRow,col);
         } else {
           for(int col:_binColIds)
-            _dapt.addValue((float)_ary.datad(bits, i, col), outputRow, col);
+         ;//   _dapt.addValue((float)_ary.datad(bits, i, col), outputRow, col);
           for(int col = 0; col < _rawColIds.length; ++col){
-            _dapt.addValue((short)(_ary.data(bits, i, _rawColIds[col]) - _rawColMins[col]), outputRow, _rawColIds[col]);
+         ;//   _dapt.addValue((short)(_ary.data(bits, i, _rawColIds[col]) - _rawColMins[col]), outputRow, _rawColIds[col]);
           }
         }
       }
@@ -208,8 +208,8 @@ public class StratifiedDABuilder extends DABuilder {
 
     for(int i = 0; i < ary.numCols(); ++i){
       if(Arrays.binarySearch(_drf._ignores, i) < 0){
-        if(dapt.binColumn(i)) binCols[b++] = i;
-        else rawCols[r++] = i;
+       // if(dapt.binColumn(i)) binCols[b++] = i;
+       // else rawCols[r++] = i;
       }
     }
     rawCols = Arrays.copyOf(rawCols, r);

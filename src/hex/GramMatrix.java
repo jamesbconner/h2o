@@ -1,9 +1,9 @@
 package hex;
 
-import java.util.Arrays;
-
-import water.Iced;
 import Jama.Matrix;
+import java.util.Arrays;
+import water.Iced;
+import water.MemoryManager;
 
 public final class GramMatrix extends Iced {
   int _n;
@@ -13,9 +13,9 @@ public final class GramMatrix extends Iced {
   public GramMatrix(int n) {
     _n = n;
     _xx = new double [n][];
-    _xy = new double [n];
+    _xy = MemoryManager.malloc8d(n);
     for(int i = 0; i < n; ++i)
-      _xx[i] = new double[i+1];
+      _xx[i] = MemoryManager.malloc8d(i+1);
   }
 
   public void addRow(double [] x, int [] indexes, double y){
@@ -52,7 +52,7 @@ public final class GramMatrix extends Iced {
     return new Matrix(_xy, _xy.length);
   }
 
-  public boolean hasNaNsOrInfs(){
+  public boolean hasNaNsOrInfs() {
     for(int i = 0; i < _xx.length; ++i){
       if(Double.isNaN(_xy[i]) || Double.isInfinite(_xy[i])) return true;
       for(double d:_xx[i])

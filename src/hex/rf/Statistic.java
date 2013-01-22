@@ -126,8 +126,10 @@ abstract class Statistic {
     final int cls = row.classOf();
     for (int f : _features)
       if ( f != -1) {
-        short val = row.getEncodedColumnValue(f);
-        _columnDists[f][val][cls]++;
+        if (row.isValid() && row.hasValidValue(f)) {
+          short val = row.getEncodedColumnValue(f);
+          _columnDists[f][val][cls]++;
+        }
       }
   }
 

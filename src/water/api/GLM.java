@@ -156,10 +156,12 @@ public class GLM extends Request {
       GLMModel m = new GLMModel(ary, columns, lsm, glmParams, null);
       m.compute();
       if( m.is_solved() ) {     // Solved at all?
+        NumberSequence nseq = _thresholds.value();
+        double[] arr = nseq == null ? null : nseq._arr;
         if( _xval.specified() && _xval.value() > 1 ) // ... and x-validate
-          m.xvalidate(_xval.value(),_thresholds.value().arr);
+          m.xvalidate(_xval.value(),arr);
         else
-          m.validateOn(ary, null,_thresholds.value().arr);// Validate...
+          m.validateOn(ary, null,arr); // Full scoring on original dataset
       }
       m.store();
       // Convert to JSON
