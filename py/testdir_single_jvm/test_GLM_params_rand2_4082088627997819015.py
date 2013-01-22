@@ -24,6 +24,7 @@ def define_params():
         'max_iter': [None, 10],
         'weight': [None, 1, 2, 4],
         }
+    return paramDict
 
 class Basic(unittest.TestCase):
     @classmethod

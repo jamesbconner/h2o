@@ -21,7 +21,7 @@ def define_params():
         'lambda1': [None, 1e-4,1,10,1e4],
         'lambda2': [None, 1e-4,1,10,1e4],
         'rho': [None, 1e-4,1,10,1e4],
-        'alpha': [None, -1,0,1.8],
+        'alpha': [None, 0,1],
         # new?
         'beta_eps': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
