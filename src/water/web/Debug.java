@@ -137,9 +137,9 @@ public class Debug extends JSONPage {
         Value v = DKV.get(Key.make(args.getProperty("key","__NOKEY__")));
         if (v == null)
           throw new Exception("Given key not found");
-        if (!v.is_persisted())
+        if (!v.isPersisted())
           throw new Exception("Value is not persistent. Cannot be freed mem");
-        v.free_mem();
+        v.freeMem();
       } else if (action.equals("RF")) {
         return profileRandomForest(args);
       } else {

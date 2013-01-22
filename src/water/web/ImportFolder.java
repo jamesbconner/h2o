@@ -27,7 +27,7 @@ public class ImportFolder extends H2OPage {
         ++correct;
       }
     }
-    fs.block_pending();
+    fs.blockForPending();
     return "Out of "+c.size()+" a total of "+correct+" was successfully imported to the cloud."+sb.toString();
   }
 
@@ -49,7 +49,7 @@ public class ImportFolder extends H2OPage {
     result.add("failed",failed);
     result.add("ok",ok);
     result.addProperty("imported",correct);
-    fs.block_pending();
+    fs.blockForPending();
     return result;
   }
 

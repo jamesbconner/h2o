@@ -47,9 +47,9 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     byte[] mem = _mem;          // Read once!
     if( mem != null ) return mem;
     if( _max == 0 ) return (_mem = new byte[0]);
-    return (_mem = load_persist());
+    return (_mem = loadPersist());
   }
-  public final void free_mem() { _mem = null; }
+  public final void freeMem() { _mem = null; }
 
   // ---
   // Time of last access to this value.
@@ -63,7 +63,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
 
   // Assertion check that Keys match, for those Values that require an internal
   // Key (usually for disk filename persistence).
-  protected boolean is_same_key(Key key) { return (_key==null) || (_key == key); }
+  protected boolean isSameKey(Key key) { return (_key==null) || (_key == key); }
 
   // ---
   // Backend persistence info.  3 bits are reserved for 8 different flavors of
@@ -91,7 +91,7 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   public final static byte ON_dsk = 1<<3;
   final public void clrdsk() { _persist &= ~ON_dsk; } // note: not atomic
   final public void setdsk() { _persist |=  ON_dsk; } // note: not atomic
-  final public boolean is_persisted() { return (_persist&ON_dsk)!=0; }
+  final public boolean isPersisted() { return (_persist&ON_dsk)!=0; }
 
   // ---
   // Interface for using the persistence layer(s).
@@ -100,45 +100,45 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   public boolean onNFS (){ return (_persist & BACKEND_MASK) ==  NFS; }
   public boolean onS3  (){ return (_persist & BACKEND_MASK) ==   S3; }
 
-  // Store complete Values to disk
-  void store_persist() {
-    if( is_persisted() ) return;
+  /** Store complete Values to disk */
+  void storePersist() {
+    if( isPersisted() ) return;
     switch( _persist&BACKEND_MASK ) {
-    case ICE : PersistIce .file_store(this); break;
-    case HDFS: PersistHdfs.file_store(this); break;
-    case NFS : PersistNFS .file_store(this); break;
-    case S3  : PersistS3  .file_store(this); break;
+    case ICE : PersistIce .fileStore(this); break;
+    case HDFS: PersistHdfs.fileStore(this); break;
+    case NFS : PersistNFS .fileStore(this); break;
+    case S3  : PersistS3  .fileStore(this); break;
     default  : throw H2O.unimpl();
     }
   }
 
-  // Remove dead Values from disk
-  void remove_persist() {
+  /** Remove dead Values from disk */
+  void removePersist() {
     // do not yank memory, as we could have a racing get hold on to this
     //  free_mem();
-    if( !is_persisted() ) return; // Never hit disk?
+    if( !isPersisted() ) return; // Never hit disk?
     clrdsk();                   // Not persisted now
     switch( _persist&BACKEND_MASK ) {
-    case ICE : PersistIce .file_delete(this); break;
-    case HDFS: PersistHdfs.file_delete(this); break;
-    case NFS : PersistNFS .file_delete(this); break;
-    case S3  : PersistS3  .file_delete(this); break;
+    case ICE : PersistIce .fileDelete(this); break;
+    case HDFS: PersistHdfs.fileDelete(this); break;
+    case NFS : PersistNFS .fileDelete(this); break;
+    case S3  : PersistS3  .fileDelete(this); break;
     default  : throw H2O.unimpl();
     }
   }
-  // Load some or all of completely persisted Values
-  byte[] load_persist() {
-    assert is_persisted();
+  /** Load some or all of completely persisted Values */
+  byte[] loadPersist() {
+    assert isPersisted();
     switch( _persist&BACKEND_MASK ) {
-    case ICE : return PersistIce .file_load(this);
-    case HDFS: return PersistHdfs.file_load(this);
-    case NFS : return PersistNFS .file_load(this);
-    case S3  : return PersistS3  .file_load(this);
+    case ICE : return PersistIce .fileLoad(this);
+    case HDFS: return PersistHdfs.fileLoad(this);
+    case NFS : return PersistNFS .fileLoad(this);
+    case S3  : return PersistS3  .fileLoad(this);
     default  : throw H2O.unimpl();
     }
   }
 
-  public String name_persist() {
+  public String nameOfPersist() {
     switch( _persist&BACKEND_MASK ) {
     case ICE : return "ICE";
     case HDFS: return "HDFS";
@@ -148,22 +148,22 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     }
   }
 
-  // Set persistence to HDFS from ICE
+  /** Set persistence to HDFS from ICE */
   public void setHdfs() {
     assert onICE();
     byte[] mem = get();         // Get into stable memory
-    remove_persist();           // Remove from ICE disk
+    removePersist();           // Remove from ICE disk
     _persist = Value.HDFS|Value.NOTdsk;
     assert onHDFS();            // Flip to HDFS
     _mem = mem; // Close a rare race with the H2O cleaner zapping _mem whilst removing from ice
-    store_persist();            // Store back to HDFS
+    storePersist();            // Store back to HDFS
   }
 
 
-  // Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray.
-  // Probably should be moved into HDFS-land, except that the same logic applies
-  // to all stores providing large-file access by default including S3.
-  public static Value lazy_array_chunk( Key key ) {
+  /** Lazily manifest data chunks on demand.  Requires a pre-existing ValueArray.
+   * Probably should be moved into HDFS-land, except that the same logic applies
+   * to all stores providing large-file access by default including S3. */
+  public static Value lazyArrayChunk( Key key ) {
     if( key._kb[0] != Key.ARRAYLET_CHUNK ) return null; // Not an arraylet chunk
     Key arykey = ValueArray.getArrayKey(key);
     Value v1 = DKV.get(arykey);
@@ -171,18 +171,12 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     if( v1._isArray == 0 ) return null; // Or not a ValueArray
     switch( v1._persist&BACKEND_MASK ) {
     case ICE : if( !key.home() ) return null; // Only do this on the home node for ICE
-               return PersistIce .lazy_array_chunk(key);
-    case HDFS: return PersistHdfs.lazy_array_chunk(key);
-    case NFS : return PersistNFS .lazy_array_chunk(key);
-    case S3  : return PersistS3  .lazy_array_chunk(key);
+               return PersistIce .lazyArrayChunk(key);
+    case HDFS: return PersistHdfs.lazyArrayChunk(key);
+    case NFS : return PersistNFS .lazyArrayChunk(key);
+    case S3  : return PersistS3  .lazyArrayChunk(key);
     default  : throw H2O.unimpl();
     }
-  }
-
-  protected boolean getString_impl( int len, StringBuilder sb ) {
-    sb.append(name_persist());
-    sb.append(is_persisted() ? "." : "!");
-    return false;
   }
 
   public StringBuilder getString( int len, StringBuilder sb ) {
@@ -337,15 +331,14 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   // the readers - i.e., writes are slow to complete.
   private transient final AtomicLong _replicas = new AtomicLong(0);
   public int numReplicas() {
-    long r = replicas();
+    long r = _replicas.get();
     int c = 0;
     for( int i = 0; i < 58; ++i ) c += (r >> i) & 0x01;
     return c;
   }
-  public long replicas() { return _replicas.get(); }
 
-  // True if h2o has a copy of this Value
-  boolean is_replica( H2ONode h2o ) {
+  /** True if h2o has a copy of this Value */
+  boolean isReplicatedTo( H2ONode h2o ) {
     assert h2o._unique_idx<58;
     return (_replicas.get()&(1L<<h2o._unique_idx)) != 0;
   }
@@ -353,10 +346,10 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
   private static int decodeReaderCount(long replicas) { return (int) (replicas >>> 58); }
   private static long encodeReaderCount(int readers)  { return ((long)readers) << 58; }
 
-  // Atomically insert h2o into the replica list; reports false if the Value
-  // flagged against future replication with a -1/63.  Also bumps the active
-  // Get count, which remains until the Get completes (we recieve an ACKACK).
-  boolean set_replica( H2ONode h2o ) {
+  /** Atomically insert h2o into the replica list; reports false if the Value
+   * flagged against future replication with a -1/63.  Also bumps the active
+   * Get count, which remains until the Get completes (we recieve an ACKACK). */
+  boolean setReplica( H2ONode h2o ) {
     assert h2o._unique_idx<58;
     assert _key.home(); // Only the HOME node for a key tracks replicas
     assert h2o != H2O.SELF;     // Do not track self as a replica
@@ -371,8 +364,8 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     }
   }
 
-  // Atomically lower active GET count
-  void lower_active_gets( H2ONode h2o ) {
+  /** Atomically lower active GET countn */
+  void lowerActiveGetCount( H2ONode h2o ) {
     assert h2o._unique_idx<58;
     assert _key.home();  // Only the HOME node for a key tracks replicas
     assert h2o != H2O.SELF;     // Do not track self as a replica
@@ -391,10 +384,10 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
       synchronized( this ) { notifyAll(); } // Notify any pending blocked PUTs
   }
 
-  // Atomically set the replica count to -1/63 locking it from further GETs and
-  // ship out invalidates to caching replicas.  May need to block on active
-  // GETs.  Updates a set of Future invalidates that can be blocked against.
-  Futures lock_and_invalidate( H2ONode sender, Futures fs ) {
+  /** Atomically set the replica count to -1/63 locking it from further GETs and
+   * ship out invalidates to caching replicas.  May need to block on active
+   * GETs.  Updates a set of Future invalidates that can be blocked against. */
+  Futures lockAndInvalidate( H2ONode sender, Futures fs ) {
     assert _key.home(); // Only the HOME node for a key tracks replicas
     // Lock against further GETs
     long old = _replicas.get();
@@ -418,9 +411,9 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     return fs;
   }
 
-  // Initialize the _replicas field for a PUT.  On the Home node (for remote
-  // PUTs), it is initialized to the one replica we know about.
-  void init_replica_home( H2ONode h2o, Key key ) {
+  /** Initialize the _replicas field for a PUT.  On the Home node (for remote
+   * PUTs), it is initialized to the one replica we know about. */
+  void initReplicaHome( H2ONode h2o, Key key ) {
     assert key.home();
     assert _key == null; // This is THE initializing key write for serialized Values
     assert h2o != H2O.SELF;     // Do not track self as a replica
@@ -430,9 +423,9 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     _replicas.set(1L<<h2o._unique_idx);
   }
 
-  // Block this thread until all prior remote PUTs complete - to force
-  // remote-PUT ordering on the home node.
-  void start_put() {
+  /** Block this thread until all prior remote PUTs complete - to force
+   * remote-PUT ordering on the home node. */
+  void startRemotePut() {
     assert !_key.home();
     long x = 0;
     while( (x=_replicas.get()) != -1L ) // Spin until replicas==-1
@@ -440,8 +433,8 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
         try { ForkJoinPool.managedBlock(this); } catch( InterruptedException e ) { }
   }
 
-  // The PUT for this Value has completed.  Wakeup any blocked later PUTs.
-  void put_completes() {
+  /** The PUT for this Value has completed.  Wakeup any blocked later PUTs. */
+  void completeRemotePut() {
     assert !_key.home();
     // Attempt an eager blind attempt, assuming no blocked pending notifies
     if( _replicas.compareAndSet(0L, -1L) ) return;
@@ -450,6 +443,11 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
       assert res;               // Must succeed
       notifyAll();              // Wake up pending blocked PUTs
     }
+  }
+
+  public boolean isRemotePutInFlight() {
+    assert !_key.home();
+    return _replicas.get() != -1;
   }
 
   public boolean isHex() {
@@ -461,9 +459,9 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
     return _key.toString().endsWith(".hex");
   }
 
-  // Return true if blocking is unnecessary.
-  // Alas, used in TWO places and the blocking API forces them to share here.
-  public boolean isReleasable() {
+  /** Return true if blocking is unnecessary.
+   * Alas, used in TWO places and the blocking API forces them to share here. */
+  @Override public boolean isReleasable() {
     long r = _replicas.get();
     if( _key.home() ) {         // Called from lock_and_invalidate
       // Home-key blocking: wait for active-GET count to fall to zero
@@ -474,21 +472,15 @@ public class Value extends Iced implements ForkJoinPool.ManagedBlocker {
       return r == -1;           // done!
     }
   }
-  // Possibly blocks the current thread.  Returns true if isReleasable would
-  // return true.  Used by the FJ Pool management to spawn threads to prevent
-  // deadlock is otherwise all threads would block on waits.
-  public synchronized boolean block() {
+  /** Possibly blocks the current thread.  Returns true if isReleasable would
+   * return true.  Used by the FJ Pool management to spawn threads to prevent
+   * deadlock is otherwise all threads would block on waits. */
+  @Override public synchronized boolean block() {
     while( !isReleasable() ) { try { wait(); } catch( InterruptedException e ) { } }
     return true;
   }
 
-  public boolean remote_put_in_flight() {
-    assert !_key.home();
-    return _replicas.get() != -1;
-  }
-
-  // ---
-  // Creates a Stream for reading bytes
+  /** Creates a Stream for reading bytes */
   public InputStream openStream() throws IOException {
     if( _isArray == 0 ) return new ByteArrayInputStream(get());
     return ValueArray.value(this).openStream();

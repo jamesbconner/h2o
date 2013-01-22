@@ -36,7 +36,7 @@ public class ImportFiles extends Request {
         succ.add(o);
       }
     }
-    fs.block_pending();
+    fs.blockForPending();
 
     json.add(SUCCEEDED, succ);
     json.add(FAILED, fail);

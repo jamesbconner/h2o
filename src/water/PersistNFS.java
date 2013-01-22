@@ -32,7 +32,7 @@ public abstract class PersistNFS {
   // disk.  A racing delete can trigger a failure where we get a null return,
   // but no crash (although one could argue that a racing load&delete is a bug
   // no matter what).
-  static byte[] file_load(Value v) {
+  static byte[] fileLoad(Value v) {
     byte[] b = MemoryManager.malloc1(v._max);
     try {
       FileInputStream s = null;
@@ -47,7 +47,7 @@ public abstract class PersistNFS {
         s = new FileInputStream(getFileForKey(k));
         while( (skip -= s.skip(skip)) > 0 ) ; // Skip to offset
         for( int off = 0; off < v._max; off += s.read(b,off,v._max) ) ; // Read whole
-        assert v.is_persisted();
+        assert v.isPersisted();
         return b;
       } finally {
         if( s != null ) s.close();
@@ -58,11 +58,11 @@ public abstract class PersistNFS {
   }
 
   // Store Value v to disk.
-  static void file_store(Value v) {
+  static void fileStore(Value v) {
     // Only the home node does persistence on NFS
     if( !v._key.home() ) return;
     // A perhaps useless cutout: the upper layers should test this first.
-    if( v.is_persisted() ) return;
+    if( v.isPersisted() ) return;
     // Never store arraylets on NFS, instead we'll store the entire array.
     assert v._isArray==0;
     try {
@@ -82,13 +82,13 @@ public abstract class PersistNFS {
     }
   }
 
-  static void file_delete(Value v) {
-    assert !v.is_persisted(); // Upper layers already cleared out
+  static void fileDelete(Value v) {
+    assert !v.isPersisted(); // Upper layers already cleared out
     File f = getFileForKey(v._key);
     f.delete();
   }
 
-  static Value lazy_array_chunk( Key key ) {
+  static Value lazyArrayChunk( Key key ) {
     Key arykey = ValueArray.getArrayKey(key);  // From the base file key
     long off = ValueArray.getChunkOffset(key); // The offset
     long size = getFileForKey(arykey).length();
