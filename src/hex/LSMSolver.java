@@ -10,23 +10,23 @@ public final class LSMSolver extends Iced {
 
   public static final double DEFAULT_LAMBDA = 1e-5;
   public static final double DEFAULT_ALPHA = 0.5;
-  public double _orlx = 1.4; // over relaxation param
+  public double _orlx = 1;//1.4; // over relaxation param
   public double _lambda = 1e-5;;
   public double _alpha = 0.5;
-  public double _rho = 1e-8;
+  public double _rho = 1e-3;
 
   public boolean normalize() {
     return _lambda != 0;
   }
 
-  public LSMSolver () {
-    _rho = 0;
-    _alpha = 0;
-    _lambda = 0;
-  }
+  public LSMSolver () {}
 
   public static LSMSolver makeSolver(){
-    return new LSMSolver();
+    LSMSolver res =  new LSMSolver();
+    res._alpha = 0;
+    res._lambda = 0;
+    res._rho = 0;
+    return res;
   }
 
   public static LSMSolver makeL2Solver(double lambda){
@@ -83,7 +83,7 @@ public final class LSMSolver extends Iced {
 
     final double ABSTOL = Math.sqrt(N) * 1e-4;
     final double RELTOL = 1e-2;
-    double[] z = new double[N-1];
+    double[] z = new double[N];
     double[] u = new double[N-1];
     Matrix xm = null;
     Matrix xyPrime = (Matrix)xy.clone();
@@ -118,14 +118,14 @@ public final class LSMSolver extends Iced {
         u[j] += x_hat - z[j];
         u_norm += u[j] * u[j];
       }
+      z[N-1] = xm.get(N-1, 0);
       // compute variables used for stopping criterium
       r_norm = Math.sqrt(r_norm);
       s_norm = _rho * Math.sqrt(s_norm);
       eps_pri = ABSTOL + RELTOL * Math.sqrt(Math.max(x_norm, z_norm));
       eps_dual = ABSTOL + _rho * RELTOL * Math.sqrt(u_norm);
-
       if( r_norm < eps_pri && s_norm < eps_dual ) break;
     }
-    return xm.getColumnPackedCopy();
+    return z;
   }
 }
