@@ -23,13 +23,14 @@ argcaseList = [
         'case': 1,
         'family': 'gaussian',
         'norm': 'L2',
-        'lambda1': 1.0E-5,
+        'lambda': 1.0E-5,
         'max_iter': 50,
         'weight': 1.0,
         'thresholds': 0.5,
         'link': 'familyDefault',
         'xval': 0,
         'expand_cat': 0,
+        'alpha': 1,
         'beta_eps': 1.0E-4 },
     ]
 

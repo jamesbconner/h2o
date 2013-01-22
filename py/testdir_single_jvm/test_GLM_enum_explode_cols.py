@@ -8,8 +8,7 @@ def define_params():
     paramDict = {
         'family': ['binomial'],
         'norm': ['L1','L2','ELASTIC'],
-        'lambda_1': [1.0E-5],
-        'lambda_2': [1.0E-8],
+        'lambda': [1.0E-5],
         'alpha': [1.0],
         'rho': [0.01],
         'max_iter': [50],

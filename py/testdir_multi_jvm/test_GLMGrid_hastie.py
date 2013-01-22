@@ -24,9 +24,8 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     kwargs = {
         'x': x, 'y':  y, 'case': '1', 'destination_key': 'gg',
         'xval': 0,
-        'lambda1': '1e-8:1e3:100',
-        'lambda2': '1e-8:1e3:100',
-        'alpha': '1,1.4,1.8',
+        'lambda': '1e-8:1e3:100',
+        'alpha': '0,0.25,0.8,1.0',
         'thresholds': '0:1:0.01'
         }
 
