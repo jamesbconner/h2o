@@ -59,7 +59,6 @@ public class GLM extends Request {
     return rs.toString();
   }
 
-
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian,true);
   protected final LinkArg _link = new LinkArg(_family,JSON_GLM_LINK);
   protected final Real _lambda = new Real(Constants.LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
@@ -179,6 +178,7 @@ public class GLM extends Request {
   }
 
 
+
   static class GLMBuilder extends ObjectBuilder {
     final GLMModel _m;
     GLMBuilder( GLMModel m) { _m=m; }
@@ -191,6 +191,7 @@ public class GLM extends Request {
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
       RString R = new RString(
           "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
+          "<div class='alert'>" + GLMScore.link(m.key(), "Validate on another dataset") + "</div>" +
           "<h4>GLM Parameters</h4>" +
           " %GLMParams %LSMParams" +
           "<h4>Equation: </h4>" +
@@ -298,82 +299,84 @@ public class GLM extends Request {
       return sb.toString();
     }
 
+    static void validationHTML(GLMValidation val, StringBuilder sb){
+      RString R = new RString("<table class='table table-striped table-bordered table-condensed'>"
+          + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
+          + "<tr><th>Null Deviance</th><td>%nullDev</td></tr>"
+          + "<tr><th>Residual Deviance</th><td>%resDev</td></tr>"
+          + "<tr><th>AIC</th><td>%AIC</td></tr>"
+          + "<tr><th>Training Error Rate Avg</th><td>%err</td></tr>"
+          +"%CM"
+          + "</table>");
+      RString R2 = new RString(
+          "<tr><th>AUC</th><td>%AUC</td></tr>"
+          + "<tr><th>Best Threshold</th><td>%threshold</td></tr>");
+
+      R.replace("DegreesOfFreedom",val._n-1);
+      R.replace("ResidualDegreesOfFreedom",val._dof);
+      R.replace("nullDev",val._nullDeviance);
+      R.replace("resDev",val._deviance);
+      R.replace("AIC", dformat(val.AIC()));
+      R.replace("err",val.err());
+
+      if(val._cm != null){
+        R2.replace("AUC", dformat(val.AUC()));
+        R2.replace("threshold", dformat(val.bestThreshold()));
+        R.replace("CM",R2);
+      }
+      sb.append(R);
+      confusionHTML(val.bestCM(),sb);
+      if(val instanceof GLMXValidation){
+        GLMXValidation xval = (GLMXValidation)val;
+        int nclasses = 2;
+        sb.append("<table class='table table-bordered table-condensed'>");
+        if(xval._cm != null){
+          sb.append("<tr><th>Model</th><th>Best Threshold</th><th>AUC</th>");
+          for(int c = 0; c < nclasses; ++c)
+            sb.append("<th>Err(" + c + ")</th>");
+          sb.append("</tr>");
+          // Display all completed models
+          int i=0;
+          for(GLMModel xm:xval.models()){
+            String mname = "Model " + i++;
+            sb.append("<tr>");
+            try {
+              sb.append("<td>" + "<a href='Inspect.html?"+KEY+"="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+            } catch( UnsupportedEncodingException e1 ) {
+              throw new Error(e1);
+            }
+            sb.append("<td>" + dformat(xm._vals[0].bestThreshold()) + "</td>");
+            sb.append("<td>" + dformat(xm._vals[0].AUC()) + "</td>");
+            for(double e:xm._vals[0].classError())
+              sb.append("<td>" + dformat(e) + "</td>");
+            sb.append("</tr>");
+          }
+        } else {
+          sb.append("<tr><th>Model</th><th>Error</th>");
+          sb.append("</tr>");
+          // Display all completed models
+          int i=0;
+          for(GLMModel xm:xval.models()){
+            String mname = "Model " + i++;
+            sb.append("<tr>");
+            try {
+              sb.append("<td>" + "<a href='Inspect.html?"+KEY+"="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
+            } catch( UnsupportedEncodingException e1 ) {
+              throw new Error(e1);
+            }
+            sb.append("<td>" + xm._vals[0]._err + "</td>");
+            sb.append("</tr>");
+          }
+        }
+        sb.append("</table>");
+      }
+    }
+
     private static void validationHTML( GLMValidation[] vals, StringBuilder sb) {
       if( vals == null || vals.length == 0 ) return;
       sb.append("<h4>Validations</h4>");
-
-      for( GLMValidation val : vals ) {
-        RString R = new RString("<table class='table table-striped table-bordered table-condensed'>"
-            + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
-            + "<tr><th>Null Deviance</th><td>%nullDev</td></tr>"
-            + "<tr><th>Residual Deviance</th><td>%resDev</td></tr>"
-            + "<tr><th>AIC</th><td>%AIC</td></tr>"
-            + "<tr><th>Training Error Rate Avg</th><td>%err</td></tr>"
-            +"%CM"
-            + "</table>");
-        RString R2 = new RString(
-            "<tr><th>AUC</th><td>%AUC</td></tr>"
-            + "<tr><th>Best Threshold</th><td>%threshold</td></tr>");
-
-        R.replace("DegreesOfFreedom",val._n-1);
-        R.replace("ResidualDegreesOfFreedom",val._dof);
-        R.replace("nullDev",val._nullDeviance);
-        R.replace("resDev",val._deviance);
-        R.replace("AIC", dformat(val.AIC()));
-        R.replace("err",val.err());
-
-        if(val._cm != null){
-          R2.replace("AUC", dformat(val.AUC()));
-          R2.replace("threshold", dformat(val.bestThreshold()));
-          R.replace("CM",R2);
-        }
-        sb.append(R);
-        confusionHTML(val.bestCM(),sb);
-        if(val instanceof GLMXValidation){
-          GLMXValidation xval = (GLMXValidation)val;
-          int nclasses = 2;
-          sb.append("<table class='table table-bordered table-condensed'>");
-          if(xval._cm != null){
-            sb.append("<tr><th>Model</th><th>Best Threshold</th><th>AUC</th>");
-            for(int c = 0; c < nclasses; ++c)
-              sb.append("<th>Err(" + c + ")</th>");
-            sb.append("</tr>");
-            // Display all completed models
-            int i=0;
-            for(GLMModel xm:xval.models()){
-              String mname = "Model " + i++;
-              sb.append("<tr>");
-              try {
-                sb.append("<td>" + "<a href='Inspect.html?"+KEY+"="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
-              } catch( UnsupportedEncodingException e1 ) {
-                throw new Error(e1);
-              }
-              sb.append("<td>" + dformat(xm._vals[0].bestThreshold()) + "</td>");
-              sb.append("<td>" + dformat(xm._vals[0].AUC()) + "</td>");
-              for(double e:xm._vals[0].classError())
-                sb.append("<td>" + dformat(e) + "</td>");
-              sb.append("</tr>");
-            }
-          } else {
-            sb.append("<tr><th>Model</th><th>Error</th>");
-            sb.append("</tr>");
-            // Display all completed models
-            int i=0;
-            for(GLMModel xm:xval.models()){
-              String mname = "Model " + i++;
-              sb.append("<tr>");
-              try {
-                sb.append("<td>" + "<a href='Inspect.html?"+KEY+"="+URLEncoder.encode(xm.key().toString(),"UTF-8")+"'>" + mname + "</a></td>");
-              } catch( UnsupportedEncodingException e1 ) {
-                throw new Error(e1);
-              }
-              sb.append("<td>" + xm._vals[0]._err + "</td>");
-              sb.append("</tr>");
-            }
-          }
-          sb.append("</table>");
-        }
-      }
+      for( GLMValidation val : vals )
+        validationHTML(val, sb);
     }
 
     private static void cmRow( StringBuilder sb, String hd, double c0, double c1, double cerr ) {
