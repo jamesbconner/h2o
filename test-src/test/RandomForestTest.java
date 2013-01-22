@@ -80,10 +80,10 @@ public class RandomForestTest extends TestUtil {
       // This should be a 7-tree confusion matrix on the iris dataset, build
       // with deterministic trees.
       // Confirm the actual results.
-      long ans[][] = new long[][]{{47,2,0},{0,46,0},{0,0,46}};
+      long ans[][] = new long[][]{{45,1,0},{0,41,6},{0,3,43}};
       for( int i=0; i<ans.length; i++ )
         for(int j=0;j<ans[i].length; j++)
-        assertEquals(ans[i][j]/2.0,C._matrix[i][j]/2,2);
+        assertEquals(ans[i][j],C._matrix[i][j]);
 
       // Cleanup
       UKV.get(modelKey,new Model()).deleteKeys();

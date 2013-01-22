@@ -8,20 +8,25 @@ import java.util.*;
 import water.MemoryManager;
 
 public class Data implements Iterable<Row> {
+  /** Use stratified sampling */
   boolean _stratify;
+
+  /** Random generator to make decision about missing data. */
+  final Random _rng;
+
   public final class Row {
     int _index;
     public String toString() {
       StringBuilder sb = new StringBuilder();
       sb.append(_index).append(" ["+classOf()+"]:");
-      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.getEncodedColumnValue(_index, i)).append(',');
+      for( int i = 0; i < _data.columns(); ++i ) sb.append(_data.hasBadValue(_index, i) ? "NA" : _data.getEncodedColumnValue(_index, i)).append(',');
       return sb.toString();
     }
     public int numClasses() { return classes(); }
     public int classOf()    { return _data.classOf(_index); }
-    public final short getEncodedColumnValue(int colIndex) {
-      return _data.getEncodedColumnValue(_index, colIndex);
-    }
+    public final short getEncodedColumnValue(int colIndex) { return _data.getEncodedColumnValue(_index, colIndex); }
+    public final boolean hasValidValue(int colIndex) { return !_data.hasBadValue(_index, colIndex); }
+    public final boolean isValid() { return !_data.isBadRow(_index); }
   }
 
   protected final DataAdapter _data;
@@ -31,6 +36,7 @@ public class Data implements Iterable<Row> {
 
   protected Data(DataAdapter da) {
     _data = da;
+    _rng  =  Utils.getDeterRNG(0x7b85dfe19122f0d5L);
     _columnInfo = new ColumnInfo[_data.columns()];
     for(int i = 0; i<_columnInfo.length; i++) {
       _columnInfo[i] = _data.ignore(i) ? null : new ColumnInfo(i);
@@ -39,15 +45,14 @@ public class Data implements Iterable<Row> {
 
   protected int start()          { return 0;                   }
   protected int end()            { return _data._numRows;      }
-  public int badRows()           { return _data._badRows;      }
   public int rows()              { return end() - start();     }
   public int columns()           { return _data.columns();     }
-  public int available_columns() { return _data.available_columns(); }
+  public int availableColumns() { return _data.availableColumns(); }
   public int classes()           { return _data.classes();     }
   public long seed()             { return _data.seed();        }
   public long dataId()           { return _data.dataId();      }
   public int classIdx()          { return _data._classIdx;     }
-  public String colName(int i)   { return _data.columnNames(i); }
+  public String colName(int i)   { return _data.columnName(i); }
   public float unmap(int col, int split) { return _data.unmap(col, split); }
   public int columnArity(int colIndex) { return _data.columnArity(colIndex); }
   public boolean ignore(int col) { return _data.ignore(col);   }
@@ -71,7 +76,14 @@ public class Data implements Iterable<Row> {
 
     while (l <= r) {
       int permIdx = row._index = permutation[l];
-      if (node.isIn(row)) {
+      boolean putToLeft = true;
+      if (node.canDecideAbout(row)) { // are we splitting over existing value
+        putToLeft = node.isIn(row);
+      } else { // make a random choice about non
+        putToLeft = _rng.nextBoolean();
+      }
+
+      if (putToLeft) {
         ls.addQ(row);
         ++l;
       } else {
@@ -113,8 +125,8 @@ public class Data implements Iterable<Row> {
 
 
   // Roll a fair die for sampling, resetting the random die every numrows
-  private int[] sample_fair(double bagSizePct, long seed, int numrows ) {
-    Random r = null;
+  private int[] sampleFair(double bagSizePct, long seed, int numrows ) {
+    Random rand = null;
     int rows = rows();
     int size = bagsz(rows,bagSizePct);
     int[] sample = MemoryManager.malloc4((int)(size*1.10));
@@ -125,28 +137,30 @@ public class Data implements Iterable<Row> {
       if( cnt--==0 ) {
         /* NOTE: Before changing used generator think about which kind of random generator you need:
          * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
-        r = Utils.getDeterRNG(seed+(i<<16)); // Seed is seed+(chunk#*numrows)
+        long chunkSamplingSeed = seed + ((long)i<<16); // In any case do NOT remove cast to long!!!
+        rand = Utils.getDeterRNG(chunkSamplingSeed);
         cnt=numrows-1;          //
         if( i+2*numrows > rows() ) cnt = rows(); // Last chunk is big
       }
-      if( ! _data.badRow(i)  && r.nextFloat() < f ) {
+      float randFloat = rand.nextFloat();
+      if( randFloat < f ) {
         if( j == sample.length ) sample = Arrays.copyOfRange(sample,0,(int)(sample.length*1.2));
         sample[j++] = i;
       }
     }
     return Arrays.copyOf(sample,j); // Trim out bad rows
   }
-  // added for stratified sampling, uniformly picks sample of n elements from the given interval
+  /** added for stratified sampling, uniformly picks sample of n elements from the given interval */
   private int sampleFromClass(int c, int n, int startIdx, int sample [], Random r) {
     int iStart = _data._intervalsStarts[c];
     int iEnd = _data._intervalsStarts[c+1];
     int iWidth = iEnd - iStart;
     for(int i = 0; i < n; ++i){
       int candidate = iStart + r.nextInt(iWidth);
-      while(_data.badRow(candidate)){
-        if(candidate == iStart)candidate = iStart + iWidth;
-        --candidate;
-      }
+ //FIXME     while(_data.badRow(candidate)){
+//        if(candidate == iStart)candidate = iStart + iWidth;
+        //--candidate;
+//      }
       sample[startIdx++] = candidate;
     }
     return startIdx;
@@ -172,7 +186,7 @@ public class Data implements Iterable<Row> {
   public Data sample(double bagSizePct, long seed, int numrows) {
     assert getClass()==Data.class; // No subclassing on this method
     int [] sample;
-    sample = sample_fair(bagSizePct,seed,numrows);
+    sample = sampleFair(bagSizePct,seed,numrows);
     // add the remaining rows
     Arrays.sort(sample); // we want an ordered sample
     return new Subset(this, sample, 0, sample.length);

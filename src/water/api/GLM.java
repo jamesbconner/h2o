@@ -228,10 +228,8 @@ public class GLM extends Request {
       validationHTML(m._vals,sb);
     }
 
-    private static final String LAMBDA1 = "&lambda;<sub>1</sub>";
-    private static final String LAMBDA2 = "&lambda;<sub>2</sub>";
-    private static final String RHO     = "&rho;";
     private static final String ALPHA   = "&alpha;";
+    private static final String LAMBDA  = "&lambda;";
     private static final String EPSILON = "&epsilon;<sub>&beta;</sub>";
 
     private static final DecimalFormat DFORMAT = new DecimalFormat("###.####");

@@ -380,7 +380,7 @@ public class GLMSolver {
         }
         double diff = 0.0;
         for(int i = 0; i < gtask._beta.length; ++i)
-          diff = Math.max(diff, Math.abs(beta[i] - gtask._beta[i]));
+          diff = Math.max(diff, Math.abs(beta[i] - _beta[i]));
         _beta = beta;
         _time = System.currentTimeMillis() - t1;
         if(diff < _glmParams._betaEps)

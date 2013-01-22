@@ -1,5 +1,5 @@
 import subprocess
-import gzip, shutil, random, time
+import gzip, shutil, random, time, re
 
 # since we hang if hosts has bad IP addresses, thought it'd be nice
 # to have simple obvious feedback to user if he's running with -v 
@@ -56,3 +56,22 @@ def file_strip_trailing_spaces(csvPathname1, csvPathname2):
         outfile.close()
         print "\n" + csvPathname1 + " stripped to " + csvPathname2
 
+# can R deal with comments in a csv?
+def file_strip_comments(csvPathname1, csvPathname2):
+        infile = open(csvPathname1, 'r')
+        outfile = open(csvPathname2,'w') # existing file gets erased
+        for line in infile.readlines():
+            if not line.startswith('#'): outfile.write(line)
+        infile.close()
+        outfile.close()
+        print "\n" + csvPathname1 + " w/o comments to " + csvPathname2
+
+def file_spaces_to_comma(csvPathname1, csvPathname2):
+        infile = open(csvPathname1, 'r')
+        outfile = open(csvPathname2,'w') # existing file gets erased
+        for line in infile.readlines():
+            line = re.sub(r' +',r',',line)
+            outfile.write(line)
+        infile.close()
+        outfile.close()
+        print "\n" + csvPathname1 + " with space(s)->comma to " + csvPathname2
