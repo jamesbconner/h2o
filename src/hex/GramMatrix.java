@@ -38,20 +38,18 @@ public final class GramMatrix extends Iced {
     }
   }
 
-  public Matrix [] getXandY(double lambda){
+  public Matrix getXX(){
     Matrix xx = new Matrix(_xx.length, _xx.length);
     for( int i = 0; i < _n; ++i ) {
       for( int j = 0; j < _xx[i].length; ++j ) {
-        if(i == j) {
-          xx.set(i, j, _xx[i][j] + ((i != (_n-1))?lambda:0.0)); // constant is not regularized
-          //xx.set(i, j, _xx[i][j] + lambda);
-        } else {
           xx.set(i, j, _xx[i][j]);
           xx.set(j, i, _xx[i][j]);
-        }
       }
     }
-    return new Matrix[]{xx,new Matrix(_xy, _xy.length)};
+    return xx;
+  }
+  public Matrix getXY(){
+    return new Matrix(_xy, _xy.length);
   }
 
   public boolean hasNaNsOrInfs(){

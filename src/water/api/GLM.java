@@ -1,8 +1,14 @@
 package water.api;
 
 import hex.*;
-import hex.GLMSolver.*;
-import hex.LSMSolver.Norm;
+import hex.GLMSolver.CaseMode;
+import hex.GLMSolver.Family;
+import hex.GLMSolver.GLMException;
+import hex.GLMSolver.GLMModel;
+import hex.GLMSolver.GLMParams;
+import hex.GLMSolver.GLMValidation;
+import hex.GLMSolver.GLMXValidation;
+import hex.GLMSolver.Link;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -22,6 +28,7 @@ import com.google.gson.JsonObject;
  */
 public class GLM extends Request {
 
+  public static final String JSON_PREVIOUS_MODEL_KEY = "previous_model_key";
   public static final String JSON_GLM_Y = "y";
   public static final String JSON_GLM_X = "x";
   public static final String JSON_GLM_NEG_X = "neg_x";
@@ -32,6 +39,7 @@ public class GLM extends Request {
   public static final String JSON_GLM_WEIGHT = "weight";
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
+  public static final String JSON_GLM_CASE_MODE = "caseMode";
   public static final String JSON_GLM_LINK = "link";
 
   public static final String JSON_ROWS = "rows";
@@ -52,55 +60,35 @@ public class GLM extends Request {
   }
 
 
-  protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian);
-  protected final EnumArgument<Norm> _norm = new EnumArgument(JSON_GLM_NORM,Norm.ELASTIC);
-
-  protected final Real _lambda1 = new Real(Constants.LAMBDA_1, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
-
-  protected final Real _lambda2 = new Real(Constants.LAMBDA_2, LSMSolver.DEFAULT_LAMBDA2);
-  protected final Real _alpha = new Real(Constants.ALPHA, LSMSolver.DEFAULT_ALPHA, -1d, 1.8d);
-  protected final Real _rho = new Real(Constants.RHO, LSMSolver.DEFAULT_RHO); // TODO I do not know the bounds
-
+  protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian,true);
+  protected final LinkArg _link = new LinkArg(_family,JSON_GLM_LINK);
+  protected final Real _lambda = new Real(Constants.LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
+  protected final Real _alpha = new Real(Constants.ALPHA, LSMSolver.DEFAULT_ALPHA, 0, 1);
+  protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
   protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
-  protected final Real _weight = new Real(JSON_GLM_WEIGHT,1.0);
-  protected final CaseSelect _case = new CaseSelect(_key,_y,JSON_GLM_CASE);
-  protected final EnumArgument<Link> _link = new EnumArgument(JSON_GLM_LINK,Link.familyDefault);
+  protected final Real _caseWeight = new Real(JSON_GLM_WEIGHT,1.0);
+  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y,_family, JSON_GLM_CASE_MODE,CaseMode.none);
+  protected final CaseSelect _case = new CaseSelect(_key,_y,_caseMode,JSON_GLM_CASE);
+  protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
   protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
 
-  protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
-  protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
+
 
   @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
-    if (arg == _family) {
+    if(arg == _caseMode){
+      if(_caseMode.value() == CaseMode.none)
+        _case.disable("n/a");
+    } else if (arg == _family) {
       if (_family.value() != Family.binomial) {
         _case.disable("Only for family binomial");
-        _weight.disable("Only for family binomial");
-      }
-    }
-    if (arg == _norm) {
-      switch (_norm.value()) {
-      case NONE:
-        _lambda1.disable("Not available for this type of normalization");
-        _lambda2.disable("Not available for this type of normalization");
-        _alpha.disable("Not available for this type of normalization");
-        _rho.disable("Not available for this type of normalization");
-        break;
-      case L1:
-        _lambda2.disable("Not available for this type of normalization");
-        break;
-      case L2:
-        _lambda2.disable("Not available for this type of normalization");
-        _alpha.disable("Not available for this type of normalization");
-        _rho.disable("Not available for this type of normalization");
-        break;
-      case ELASTIC:
+        _caseMode.disable("Only for family binomial");
+        _caseWeight.disable("Only for family binomial");
+        _thresholds.disable("Only for family binomial");
       }
     }
   }
 
   public GLM() {
-    _family.setRefreshOnChange();
-    _norm.setRefreshOnChange();
   }
 
 
@@ -132,8 +120,8 @@ public class GLM extends Request {
     double [] res = null;
     if( f == Family.binomial ) {
       res = new double []{1.0,1.0};
-      res[GLMSolver.FAMILY_ARGS_CASE] = _case.value();
-      res[GLMSolver.FAMILY_ARGS_WEIGHT] = _weight.value();
+     // res[GLMSolver.FAMILY_ARGS_CASE] = _case.value();
+      res[GLMSolver.FAMILY_ARGS_WEIGHT] = _caseWeight.value();
     }
     return res;
   }
@@ -146,23 +134,12 @@ public class GLM extends Request {
       res._l = res._f.defaultLink;
     res._maxIter = _maxIter.value();
     res._betaEps = _betaEps.value();
-    res._familyArgs = getFamilyArgs(res._f);
+    if(_caseWeight.valid())
+      res._caseWeight = _caseWeight.value();
+    if(_case.valid())
+      res._caseVal = _case.value();
+    res._caseMode = _caseMode.valid()?_caseMode.value():CaseMode.none;
     return res;
-  }
-
-  LSMSolver getLSMSolver() {
-    switch (_norm.value()) {
-    case NONE:
-      return LSMSolver.makeSolver();
-    case L1:
-      return LSMSolver.makeL1Solver(_lambda1.value(), _rho.value(), _alpha.value());
-    case L2:
-      return LSMSolver.makeL2Solver(_lambda1.value());
-    case ELASTIC:
-      return LSMSolver.makeElasticNetSolver(_lambda1.value(), _lambda2.value(), _rho.value(), _alpha.value());
-    default:
-      throw new Error("Unexpected solver type");
-    }
   }
 
 
@@ -176,12 +153,12 @@ public class GLM extends Request {
       res.addProperty("h2o", H2O.SELF.toString());
 
       GLMParams glmParams = getGLMParams();
-      LSMSolver lsm = getLSMSolver();
-      GLMSolver glm = new GLMSolver(lsm, glmParams);
-      GLMModel m = glm.computeGLM(ary, columns, null);
+      LSMSolver lsm = LSMSolver.makeSolver(_lambda.value(),_alpha.value());
+      GLMModel m = new GLMModel(ary, columns, lsm, glmParams, null);
+      m.compute();
       if( m.is_solved() ) {     // Solved at all?
         if( _xval.specified() && _xval.value() > 1 ) // ... and x-validate
-          glm.xvalidate(m,ary,columns,_xval.value(),_thresholds.value().arr);
+          m.xvalidate(_xval.value(),_thresholds.value().arr);
         else
           m.validateOn(ary, null,_thresholds.value().arr);// Validate...
       }
@@ -251,10 +228,8 @@ public class GLM extends Request {
       validationHTML(m._vals,sb);
     }
 
-    private static final String LAMBDA1 = "&lambda;<sub>1</sub>";
-    private static final String LAMBDA2 = "&lambda;<sub>2</sub>";
-    private static final String RHO     = "&rho;";
     private static final String ALPHA   = "&alpha;";
+    private static final String LAMBDA  = "&lambda;";
     private static final String EPSILON = "&epsilon;<sub>&beta;</sub>";
 
     private static final DecimalFormat DFORMAT = new DecimalFormat("###.####");
@@ -272,13 +247,10 @@ public class GLM extends Request {
       parm(sb,"family",glmp._f);
       parm(sb,"link",glmp._l);
       parm(sb,EPSILON,glmp._betaEps);
-      double[] fa = glmp._familyArgs;
-      if( glmp._f == GLMSolver.Family.binomial ) {
-        if( !Double.isNaN(fa[GLMSolver.FAMILY_ARGS_CASE]) ) {
-          parm(sb,"case",(int)fa[GLMSolver.FAMILY_ARGS_WEIGHT]);
-          if( fa[GLMSolver.FAMILY_ARGS_WEIGHT] != 1.0 )
-            parm(sb,"weight",fa[GLMSolver.FAMILY_ARGS_WEIGHT]);
-        }
+
+      if( glmp._caseMode != CaseMode.none) {
+         parm(sb,"case",glmp._caseMode.exp(glmp._caseVal));
+         parm(sb,"weight",glmp._caseWeight);
       }
       return sb.toString();
     }
@@ -286,26 +258,8 @@ public class GLM extends Request {
     private static String lsmParamsHTML( GLMModel m ) {
       StringBuilder sb = new StringBuilder();
       LSMSolver lsm = m._solver;
-      switch( lsm._penalty ) {
-      case NONE: break;
-      case L1:
-        parm(sb,"penalty","l1");
-        parm(sb,LAMBDA1,lsm._lambda);
-        parm(sb,RHO    ,lsm._rho);
-        parm(sb,ALPHA  ,lsm._alpha);
-        break;
-      case L2:
-        parm(sb,"penalty","l2");
-        parm(sb,LAMBDA1,lsm._lambda);
-        break;
-      case ELASTIC:
-        parm(sb,"penalty","l1+l2");
-        parm(sb,LAMBDA1,lsm._lambda);
-        parm(sb,LAMBDA2,lsm._lambda2);
-        parm(sb,RHO    ,lsm._rho);
-        parm(sb,ALPHA  ,lsm._alpha);
-        break;
-      }
+      parm(sb,LAMBDA,lsm._lambda);
+      parm(sb,ALPHA  ,lsm._alpha);
       return sb.toString();
     }
 

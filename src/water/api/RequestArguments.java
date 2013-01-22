@@ -1,9 +1,12 @@
 package water.api;
 
+import hex.GLMSolver.*;
 import hex.rf.Model;
 
 import java.io.File;
 import java.util.*;
+
+import org.apache.poi.ss.formula.functions.Columns;
 
 import water.*;
 import water.ValueArray.Column;
@@ -1201,26 +1204,66 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
+  public class CaseModeSelect extends EnumArgument<CaseMode> {
+    public CaseModeSelect(H2OHexKey key,H2OHexKeyCol classCol, EnumArgument<Family> family, String name, CaseMode defaultValue) {
+      super(name, defaultValue);
+      addPrerequisite(_key = key);
+      addPrerequisite(_classCol  = classCol);
+      addPrerequisite(_family  = family);
+      setRefreshOnChange();
+    }
+
+    public final H2OHexKey _key;
+    public final H2OHexKeyCol _classCol;
+    public final EnumArgument<Family> _family;
+
+    @Override
+    public CaseMode defaultValue() {
+      if(_family.value() == Family.binomial){
+        Column c = _key.value()._cols[_classCol.value()];
+        if(c._min < 0 || c._max > 1) return CaseMode.gt;
+      }
+      return CaseMode.none;
+    }
+
+  }
+
+  class LinkArg extends EnumArgument<Link> {
+    final EnumArgument<Family> _f;
+
+    public LinkArg(EnumArgument<Family> f ,String name) {
+      super(name,f.defaultValue().defaultLink);
+      addPrerequisite(_f = f);
+    }
+
+    @Override
+    protected Link defaultValue() {
+      return _f.value().defaultLink;
+    }
+  }
+
   // Binomial GLM 'case' selection.  Only useful for binomial GLM where the
   // response column is NOT 0/1 - names a value to be treated as 1 and all
   // other values are treated as zero.
   public class CaseSelect extends Real {
     public final H2OHexKey _key;
     public final H2OHexKeyCol _classCol;
+    public final CaseModeSelect _caseMode;
 
-    public CaseSelect(H2OHexKey key, H2OHexKeyCol classCol, String name) {
+
+    public CaseSelect(H2OHexKey key, H2OHexKeyCol classCol, CaseModeSelect mode, String name) {
       super(name);
-      addPrerequisite(_key=key);
+      addPrerequisite(_key= key);
       addPrerequisite(_classCol=classCol);
+      addPrerequisite(_caseMode = mode);
     }
 
     @Override protected Double defaultValue() {
-      ValueArray va = _key.value();
-      int classCol = _classCol.value();
-      ValueArray.Column C = va._cols[classCol];
-      if(C._min != 0 ||  C._max != 1.0 ) return C._max;
-      return Double.NaN;
+      if(_caseMode.value() == CaseMode.none)return Double.NaN;
+      Column c = _key.value()._cols[_classCol.value()];
+      return (_caseMode.value() == CaseMode.eq || Double.isNaN(c._mean))?c._max:c._mean;
     }
+
 
     @Override protected Double parse(String input) throws IllegalArgumentException {
       // Set min & max at the last second, after key/column selection has been
@@ -1238,6 +1281,7 @@ public class RequestArguments extends RequestStatics {
       return "Treat "+_classCol+" as a logical column, with values equal to this as true/1 and all other values as false/0";
     }
   }
+
 
   // ---------------------------------------------------------------------------
   // Bool
@@ -1265,9 +1309,13 @@ public class RequestArguments extends RequestStatics {
   public class EnumArgument<T extends Enum<T>> extends InputSelect<T> {
 
     protected final Class<T> _enumClass;
-    protected final T _defaultValue;
+    private final T _defaultValue;
 
 
+    public EnumArgument(String name, T defaultValue, boolean refreshOnChange) {
+      this(name,defaultValue);
+      if(refreshOnChange)setRefreshOnChange();
+    }
     public EnumArgument(String name, T defaultValue) {
       super(name, false);
       _defaultValue = defaultValue;
@@ -1285,7 +1333,7 @@ public class RequestArguments extends RequestStatics {
       T[] _enums = _enumClass.getEnumConstants();
       String[] result = new String[_enums.length];
       for (int i = 0; i < _enums.length; ++i)
-        result[i] = _enums[i].name();
+        result[i] = _enums[i].toString();
       return result;
     }
 
@@ -1293,12 +1341,12 @@ public class RequestArguments extends RequestStatics {
       T v = value();
       if (v == null)
         return "";
-      return v.name();
+      return v.toString();
     }
 
     @Override protected T parse(String input) throws IllegalArgumentException {
       for (T v : _enumClass.getEnumConstants())
-        if (v.name().equals(input))
+        if (v.toString().equals(input))
           return v;
       throw new IllegalArgumentException("Only "+Arrays.toString(selectValues())+" accepted for argument "+_name);
     }

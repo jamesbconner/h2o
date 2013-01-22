@@ -30,8 +30,8 @@ public class RandomForest {
     Timer  t_alltrees = new Timer();
     Tree[] trees      = new Tree[ntrees];
 
-    String str = data.rows()+" rows and " + data.badRows() + " bad rows.";
-    if ( data.rows() == 0 || data.badRows() == data.rows()) throw new Error("[RF] Not enough rows to run. " + str);
+ //FIXME   String str = data.rows()+" rows and " + data.badRows() + " rows contains NaN.";
+    String str = data.rows()+" rows ";
     Utils.pln("[RF] starting RF computation with "+ str);
 
     Random rnd = Utils.getRNG(data.seed() + ROOT_SEED_ADD);

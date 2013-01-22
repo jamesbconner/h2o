@@ -56,8 +56,7 @@ public class Constants {
   public static final String K                     = "k";
   public static final String KEY                   = "key";
   public static final String KEYS                  = "keys";
-  public static final String LAMBDA_1              = "lambda_1";
-  public static final String LAMBDA_2              = "lambda_2";
+  public static final String LAMBDA                = "lambda";
   public static final String LIMIT                 = "limit";
   public static final String LOCKED                = "locked";
   public static final String MAX                   = "max";

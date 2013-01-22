@@ -1,5 +1,6 @@
 package hex.rf;
 
+import java.util.Arrays;
 import java.util.Random;
 
 import water.*;
@@ -15,7 +16,7 @@ import com.google.common.primitives.Ints;
  */
 public class Confusion extends MRTask {
 
-
+  /** Number of used trees in CM computation */
   public int _treesUsed;
   /** Key for the model used for construction of the confusion matrix. */
   public Key _modelKey;
@@ -36,8 +37,12 @@ public class Confusion extends MRTask {
   public long                 _matrix[][];
   /** Number of mistaken assignments. */
   private long                _errors;
+  /** Error rate per tree */
+  private long[]              _errorsPerTree;
   /** Number of rows used for building the matrix.*/
   private long                _rows;
+  /** Number of skipped rows => rows can contain bad data, or can be skipped by selecting only out-of-back rows */
+  private long                _skippedRows;
   /** Class weights */
   private double[]            _classWt;
   /** For reproducibility we can control the randomness in the computation of the
@@ -161,6 +166,7 @@ public class Confusion extends MRTask {
     final boolean icols[] = new boolean[cols.length];
     for( int k : _ignores ) icols[k] = true;
 
+    _errorsPerTree = new long[_model.treeCount()];
     // Replay the Data.java's "sample_fair" sampling algorithm to exclude data
     // we trained on during voting.
     for( int ntree = 0; ntree < _model.treeCount(); ntree++ ) {
@@ -168,24 +174,26 @@ public class Confusion extends MRTask {
       long init_row = _chunk_row_mapping[nchk];
       /* NOTE: Before changing used generator think about which kind of random generator you need:
        * if always deterministic or non-deterministic version - see hex.rf.Utils.get{Deter}RNG */
-      Random r = Utils.getDeterRNG(seed+(init_row<<16)  + (nchk==0?1111:0));
+      seed = seed + (init_row<<16);
+      Random rand = Utils.getDeterRNG(seed);
       // Now for all rows, classify & vote!
-      ROWS: for( int i = 0; i < rows; i++ ) {
+      ROWS: for( int row = 0; row < rows; row++ ) {
+        // ------ THIS CODE is crucial and serve to replay the same sequence
+        // of random numbers as in the method Data.sampleFair()
+        // Skip row used during training if OOB is computed
+        float sampledItem = rand.nextFloat();
+        if( _computeOOB &&  sampledItem < _model._sample ) continue ROWS;
+        // ------
+
         // Bail out of broken rows in not-ignored columns
         for(int c = 0; c < cols.length; ++c)
-          if( !icols[c] && _data.isNA(bits, i, cols[c])) continue ROWS;
-          /* FIXME ARGGH
-          if ( icols[c]) continue;
-          else if( _data.isNA(bits, i, cols[c])) continue ROWS;
-          else if( / *cols[c].isFloat() && * / Float.isInfinite((float) _data.datad(bits, i, cols[c]))) continue ROWS;
-*/
-        // Skip row used during training
-        if( _computeOOB &&  r.nextFloat() < _model._sample ) continue ROWS;
+          if( !icols[c] && _data.isNA(bits, row, cols[c])) continue ROWS;
 
         // Predict with this tree
-        int prediction = _model.classify0(ntree, bits, i, rowsize, _data);
+        int prediction = _model.classify0(ntree, bits, row, rowsize, _data);
+        if (prediction != (int) _data.data(bits, row, _classcol)) _errorsPerTree[ntree]++;
         if( prediction >= _N ) continue ROWS; // Junk row cannot be predicted
-        votes[i][prediction]++; // Vote the row
+        votes[row][prediction]++; // Vote the row
       }
     }
 
@@ -200,7 +208,7 @@ public class Confusion extends MRTask {
       for( int l = 1; l<_N; l++)
         if( vi[l] > vi[result] ) { result=l; tied=1; }
         else if( vi[l] == vi[result] ) { tied++; }
-      if( vi[result]==0 ) continue; // Ignore rows with zero votes
+      if( vi[result]==0 ) { _skippedRows++; continue; }// Ignore rows with zero votes
       if( tied>1 ) {                // Tie-breaker logic
         int j = _rand.nextInt(tied);
         int k = 0;
@@ -229,8 +237,17 @@ public class Confusion extends MRTask {
       for( int i = 0; i < m1.length; i++ )
         for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
     }
-    _rows += C._rows;
-    _errors += C._errors;
+    _rows    += C._rows;
+    _errors  += C._errors;
+    _skippedRows += C._skippedRows;
+
+    // Reduce tree errors
+    long[] ept1 = _errorsPerTree;
+    long[] ept2 = C._errorsPerTree;
+    if (ept1 == null) _errorsPerTree = ept2;
+    else {
+      for (int i = 0; i < ept1.length; i++) ept1[i] += ept2[i];
+    }
   }
 
   /** Text form of the confusion matrix */
@@ -275,11 +292,16 @@ public class Confusion extends MRTask {
         + "                    Number of trees: " + _model.size() + "\n"
         + "No of variables tried at each split: " + _model._splitFeatures + "\n"
         + "              Estimate of err. rate: " + Math.round(err * 10000) / 100 + "%  (" + err + ")\n"
+        + "                              OOBEE: " + (_computeOOB ? "YES (sampling rate: "+_model._sample*100+"%)" : "NO")+ "\n"
         + "                   Confusion matrix:\n"
         + confusionMatrix() + "\n"
         + "          Avg tree depth (min, max): "  + _model.depth() + "\n"
         + "         Avg tree leaves (min, max): " + _model.leaves() + "\n"
-        + "                Validated on (rows): " + _rows;
+        + "                Validated on (rows): " + _rows + "\n"
+        + "     Rows skipped during validation: " + _skippedRows + "\n"
+        + "  Mispredictions per tree (in rows): " + Arrays.toString(_errorsPerTree)+"\n";
+
+
     Utils.pln(s);
   }
 

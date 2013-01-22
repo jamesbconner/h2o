@@ -12,7 +12,7 @@
 
 import os, json, unittest, time, shutil, sys
 sys.path.extend(['.','..','py'])
-import h2o, h2o_cmd, h2o_glm, h2o_util
+import h2o, h2o_cmd, h2o_glm, h2o_util, h2o_hosts
 import copy
 
 def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
@@ -22,8 +22,8 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     x = ""
     # NOTE: hastie has two values, -1 and 1. To make H2O work if two valued and not 0,1 have
     kwargs = {
-        'x': x, 'y':  y, 'case': '1', 
-        'destination_key': 'gg',
+        'x': x, 'y':  y, 'case': '1', 'destination_key': 'gg',
+        'xval': 0,
         'lambda1': '1e-8:1e3:100',
         'lambda2': '1e-8:1e3:100',
         'alpha': '1,1.4,1.8',
@@ -35,15 +35,21 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     glmGridResult = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
     print "GLMGrid in",  (time.time() - start), "secs (python)"
 
-    h2o_glm.simpleCheckGLMGrid(self,glmGridResult)
+    h2o_glm.simpleCheckGLMGrid(self,glmGridResult, **kwargs)
 
 class Basic(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        h2o.build_cloud(1)
         global SYNDATASETS_DIR
         SYNDATASETS_DIR = h2o.make_syn_dir()
+
+        global local_host
+        local_host = not 'hosts' in os.getcwd()
+        if (local_host):
+            h2o.build_cloud(2,java_heap_GB=6)
+        else:
+            h2o_hosts.build_cloud_with_hosts()
 
     @classmethod
     def tearDownClass(cls):
@@ -55,7 +61,7 @@ class Basic(unittest.TestCase):
         # in other tests. (catdata?)
         csvFilename = "1mx10_hastie_10_2.data.gz"
         csvPathname = h2o.find_dataset('logreg' + '/' + csvFilename)
-        glm_doit(self,csvFilename, csvPathname, timeoutSecs=300)
+        glm_doit(self,csvFilename, csvPathname, timeoutSecs=120)
 
         filename1x = "hastie_1x.data"
         pathname1x = SYNDATASETS_DIR + '/' + filename1x
@@ -73,7 +79,7 @@ class Basic(unittest.TestCase):
         print "Iterating 1 times on this last one for perf compare"
         for i in range(1):
             print "\nTrial #", i, "of", filename4x
-            glm_doit(self,filename4x, pathname4x, timeoutSecs=300)
+            glm_doit(self,filename4x, pathname4x, timeoutSecs=120)
 
 if __name__ == '__main__':
     h2o.unit_main()

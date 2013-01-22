@@ -4,6 +4,8 @@ import com.google.gson.*;
 import hex.LinearRegression;
 import hex.GLMSolver;
 import hex.LSMSolver;
+import hex.GLMSolver.GLMModel;
+
 import java.util.Map;
 import java.util.Random;
 import org.junit.*;
@@ -32,14 +34,14 @@ public class GLMTest extends TestUtil {
     GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
     glmp._f = family;
     glmp._l = glmp._f.defaultLink;
-    glmp._familyArgs = glmp._f.defaultArgs;
+    //glmp._familyArgs = glmp._f.defaultArgs;
     glmp._betaEps = 0.000001;
     glmp._maxIter = 100;
     glmp._expandCat = cat;
     // Solver
-    GLMSolver glms = new GLMSolver(lsms,glmp);
+    GLMModel m = new GLMModel(va, cols, lsms, glmp, null);
     // Solve it!
-    GLMSolver.GLMModel m = glms.computeGLM(va, cols, null);
+    m.compute();
     JsonObject glm = m.toJson();
     return glm;
   }
@@ -145,9 +147,7 @@ public class GLMTest extends TestUtil {
       assertEquals( 0.3, coefs.get("1")        .getAsDouble(), 0.000001);
 
       // L1 penalty
-      LSMSolver lsms1 = LSMSolver.makeL1Solver(LSMSolver.DEFAULT_LAMBDA,
-                                               LSMSolver.DEFAULT_RHO,
-                                               LSMSolver.DEFAULT_ALPHA);
+      LSMSolver lsms1 = LSMSolver.makeL1Solver(LSMSolver.DEFAULT_LAMBDA);
       glm = computeGLMlog(lsms1,va,false); // Solve it!
       coefs = glm.get("coefficients").getAsJsonObject();
       assertEquals(-2.5, coefs.get("Intercept").getAsDouble(), 0.00001);
@@ -163,10 +163,7 @@ public class GLMTest extends TestUtil {
       assertEquals( 0.3, coefs.get("1")        .getAsDouble(), 0.000001);
 
       // ELASTIC penalty
-      LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA,
-                                                       LSMSolver.DEFAULT_LAMBDA2,
-                                                       LSMSolver.DEFAULT_RHO,
-                                                       LSMSolver.DEFAULT_ALPHA);
+      LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA);
       glm = computeGLMlog(lsmsx,va,false); // Solve it!
       coefs = glm.get("coefficients").getAsJsonObject();
       assertEquals(-2.5, coefs.get("Intercept").getAsDouble(), 0.00001);
@@ -190,10 +187,7 @@ public class GLMTest extends TestUtil {
       int[] cols= new int[]{3,4,5,6,7,2};
       ValueArray va = ValueArray.value(DKV.get(k2));
       // Compute the coefficients
-      LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA,
-                                                       LSMSolver.DEFAULT_LAMBDA2,
-                                                       LSMSolver.DEFAULT_RHO,
-                                                       LSMSolver.DEFAULT_ALPHA);
+      LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA);
       JsonObject glm = computeGLM( GLMSolver.Family.binomial, lsmsx, va, false, cols );
 
       // Now run the dataset through the equation and see how close we got
@@ -209,7 +203,7 @@ public class GLMTest extends TestUtil {
       ROWS:                     // Skip bad rows
       for( int i=0; i<va._numrows; i++ ) {
         for( int j=2; j<8; j++ ) if( va.isNA(ab,i,j) ) continue ROWS;
-        double x = 
+        double x =
           disp  *va.datad(ab,i,3) +
           power *va.datad(ab,i,4) +
           weight*va.datad(ab,i,5) +
