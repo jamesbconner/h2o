@@ -1,6 +1,9 @@
 import unittest, time, sys
 sys.path.extend(['.','..','py'])
 
+print "Needs numpy, rpy2, and R installed. Run on 192.168.171-175"
+# FIX! maybe should update to build_cloud_with_hosts to run on 171-175?
+
 import h2o, h2o_cmd, h2o_glm, h2o_util
 import numpy as np
 from rpy2 import robjects as ro
@@ -13,6 +16,8 @@ def glm_R(csvPathname, col_names, formula):
 
     # print ro.r.summary(fit)
     coef = ro.r.coef(fit)
+
+    # FIX! generalize on len here somehow
     print "intercept     %.5e:"% coef[0]
     print "coefficient 1 %.5e:"% coef[1]
     print "coefficient 2 %.5e:"% coef[2]
@@ -48,12 +53,15 @@ class Basic(unittest.TestCase):
 
         trial = 0
         for (csvFilename, family, y, timeoutSecs, x) in csvFilenameList:
+            # FIX! do something about this file munging
             csvPathname1 = h2o.find_file("smalldata/logreg/umass_statdata/" + csvFilename)
             csvPathname2 = SYNDATASETS_DIR + '/' + csvFilename + '_2.csv'
-            csvPathname3 = SYNDATASETS_DIR + '/' + csvFilename + '_3.csv'
-            csvPathname4 = SYNDATASETS_DIR + '/' + csvFilename + '_4.csv'
             h2o_util.file_strip_comments(csvPathname1, csvPathname2)
+
+            csvPathname3 = SYNDATASETS_DIR + '/' + csvFilename + '_3.csv'
             h2o_util.file_strip_trailing_spaces(csvPathname2, csvPathname3)
+
+            csvPathname4 = SYNDATASETS_DIR + '/' + csvFilename + '_4.csv'
             h2o_util.file_spaces_to_comma(csvPathname3, csvPathname4)
 
             kwargs = {'xval': 0, 'case': 'NaN', 'y': y, \
@@ -67,11 +75,10 @@ class Basic(unittest.TestCase):
             print "glm end (w/check) on ", csvPathname3, 'took', time.time() - start, 'seconds'
 
             # now do it thru R
-            # formula = 'y ~ a+b+c+d+e+f+g+h' 
+            # FIX! generalize on formula and col names here
             formula = 'y ~ a+b+c+d+e+f+g+h'
             col_names = ['a','b','c','d','e','f','g','h','y']
             glm_R(csvPathname4, col_names, formula)
-
 
             trial += 1
             print "\nTrial #", trial
