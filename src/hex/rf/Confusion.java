@@ -15,7 +15,7 @@ import com.google.common.primitives.Ints;
  */
 public class Confusion extends MRTask {
 
-
+  /** Number of used trees in CM computation */
   public int _treesUsed;
   /** Key for the model used for construction of the confusion matrix. */
   public Key _modelKey;
@@ -38,6 +38,8 @@ public class Confusion extends MRTask {
   private long                _errors;
   /** Number of rows used for building the matrix.*/
   private long                _rows;
+  /** Number of rows containing bad data => the rows are skipped */
+  private long                _badRows;
   /** Class weights */
   private double[]            _classWt;
   /** For reproducibility we can control the randomness in the computation of the
@@ -173,12 +175,10 @@ public class Confusion extends MRTask {
       ROWS: for( int i = 0; i < rows; i++ ) {
         // Bail out of broken rows in not-ignored columns
         for(int c = 0; c < cols.length; ++c)
-          if( !icols[c] && _data.isNA(bits, i, cols[c])) continue ROWS;
-          /* FIXME ARGGH
+          //if( !icols[c] && _data.isNA(bits, i, cols[c])) continue ROWS;
           if ( icols[c]) continue;
           else if( _data.isNA(bits, i, cols[c])) continue ROWS;
-          else if( / *cols[c].isFloat() && * / Float.isInfinite((float) _data.datad(bits, i, cols[c]))) continue ROWS;
-*/
+          else if( cols[c].isFloat() && Float.isInfinite((float) _data.datad(bits, i, cols[c]))) continue ROWS;
         // Skip row used during training
         if( _computeOOB &&  r.nextFloat() < _model._sample ) continue ROWS;
 
@@ -200,7 +200,7 @@ public class Confusion extends MRTask {
       for( int l = 1; l<_N; l++)
         if( vi[l] > vi[result] ) { result=l; tied=1; }
         else if( vi[l] == vi[result] ) { tied++; }
-      if( vi[result]==0 ) continue; // Ignore rows with zero votes
+      if( vi[result]==0 ) { _badRows++; continue; }// Ignore rows with zero votes
       if( tied>1 ) {                // Tie-breaker logic
         int j = _rand.nextInt(tied);
         int k = 0;
@@ -229,8 +229,9 @@ public class Confusion extends MRTask {
       for( int i = 0; i < m1.length; i++ )
         for( int j = 0; j < m1.length; j++ )  m1[i][j] += m2[i][j];
     }
-    _rows += C._rows;
-    _errors += C._errors;
+    _rows    += C._rows;
+    _errors  += C._errors;
+    _badRows += C._badRows;
   }
 
   /** Text form of the confusion matrix */
@@ -279,7 +280,9 @@ public class Confusion extends MRTask {
         + confusionMatrix() + "\n"
         + "          Avg tree depth (min, max): "  + _model.depth() + "\n"
         + "         Avg tree leaves (min, max): " + _model.leaves() + "\n"
-        + "                Validated on (rows): " + _rows;
+        + "                Validated on (rows): " + _rows + "\n"
+        + "     Rows skipped during validation: " + _badRows + "\n";
+
     Utils.pln(s);
   }
 

@@ -1,4 +1,4 @@
-  package hex.rf;
+package hex.rf;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -7,12 +7,18 @@ import water.*;
 import water.ValueArray.Column;
 
 import com.google.common.primitives.Ints;
-
+/**A DataAdapter maintains an encoding of the original data. Every raw value (of type float)
+ * is represented by a short value. When the number of unique raw value is larger that binLimit,
+ * the DataAdapter will perform binning on the data and use the same short encoded value to
+ * represent several consecutive raw values.
+ *
+ * Missing values, NaNs and Infinity are treated as BAD data. */
 final class DataAdapter  {
-  private final int _numClasses;
+  /*Place holder for missing data, NaN, Inf in short encoding.*/
+  static final short BAD = Short.MIN_VALUE;
+  int _numClasses = -1;
   int [] _intervalsStarts;
-  int _badRows;
-  private final C[] _c;
+  private final Col[] _c;
   public  final ValueArray _ary;
   /** Unique cookie identifying this dataset*/
   private final long _dataId;
@@ -31,41 +37,29 @@ final class DataAdapter  {
     _ary = ary;
     _bin_limit = bin_limit;
     Column[] cols = ary._cols;
-    _c = new C[cols.length];
-
-    _numClasses = (int)(cols[classCol]._max - cols[classCol]._min)+1;
-    assert 0 <= _numClasses && _numClasses < 65535;
-
+    _c = new Col[cols.length];
     _classIdx = classCol;
-    assert ignores.length < cols.length - 1;
+    assert ignores.length < cols.length - 1 : "Too many ignores";
     int available_columns = 0;
     for( int i = 0; i < cols.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
+      if (ignore) assert i != _classIdx : "Trying to ignore class feature";
       Column c = cols[i];
       double range = c._max - c._min;
+      if( i==_classIdx) assert range != 0 : "All observations are of one class";
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("[DA] Ignoring column " + i + " as all values are identical.");   }
-      boolean raw = (c._size > 0 && !c.isScaled() && range < _bin_limit && c._max >= 0); //TODO do it for negative columns as well
-      raw = (i==_classIdx);
-      C.ColType t = C.ColType.SHORT;
-      if( raw && range <= 1 ) t = C.ColType.BOOL;
-      else if( raw && range <= Byte.MAX_VALUE) t = C.ColType.BYTE;
-      boolean do_bin = !raw && !ignore;
-      _c[i]= new C(c._name, rows, i==_classIdx, t, do_bin, ignore,_bin_limit, c._scale>1);
-      available_columns += !_c[i]._ignore ? 1 : 0;
-      if( raw ) {
-        _c[i]._smax = (short)range;
-        _c[i]._min = (float)c._min;
-        _c[i]._max = (float)c._max;
-      }
+      _c[i]= new Col(c._name, rows, i==_classIdx,ignore,_bin_limit, c.isFloat());
+      available_columns += !_c[i].isIgnore() ? 1 : 0;
     }
     _dataId = unique;
     _numRows = rows;
-    assert classWt == null || classWt.length==_numClasses;
     _classWt = classWt;
-    assert available_columns <= cols.length - ignores.length : "Avaiable columns are computed in wrong way!";
+    assert available_columns <= cols.length - ignores.length : "Available columns are computed in wrong way!";
+    assert available_columns > 0 : "All columns are unusable";
     _available_columns = available_columns;
   }
+
   public void initIntervals(int n){
     _intervalsStarts = new int[n+1];
     _intervalsStarts[n] = _numRows;
@@ -79,195 +73,161 @@ final class DataAdapter  {
   /** Given a value in enum format, returns:  the value in the original format if no
    * binning was applied,  or if binning was applied a value that is inbetween
    * the idx and the next value.  If the idx is the last value return (2*idx+1)/2. */
-  public float unmap(int col, int idx){
-    C c = _c[col];
-    if ( !c._bin ) return idx + c._min;
-    assert idx < c._binned2raw.length : "Trying to reference binned value out of binned2raw array!";
-    float flo = c._binned2raw[idx+0]; // Convert to the original values
-    float fhi = c._binned2raw[idx+1];
-    float fmid = (flo+fhi)/2.0f; // Compute a split-value
-    assert flo < fmid && fmid < fhi : "Values " + flo +","+fhi ; // Assert that the float will properly split
-    return fmid;
-  }
+  public float unmap(int col, int idx){ return _c[col].rawSplit(idx); }
 
   public void computeBins(int col){_c[col].shrink();}
-  public boolean isFloat(int col) { return _c[col]._isFloat; }
+
+  public boolean isFloat(int col) { return _c[col].isFloat(); }
   public long seed()          { return _seed; }
   public int columns()        { return _c.length;}
-  public int classOf(int idx) { return getEncodedColumnValue(idx,_classIdx); }
+  public int classOf(int idx) { return _c[_classIdx].get(idx); }
   /**Returns true if the row has missing data. */
-  public boolean badRow(int idx) { return getEncodedColumnValue(idx,_classIdx) == -1; }
+//  public boolean badRow(int idx) { return getEncodedColumnValue(idx,_classIdx) == -1; }
   public long dataId()         { return _dataId; }
   /** The number of possible prediction classes. */
   public int classes()        { return _numClasses; }
   /** True if we should ignore column i. */
-  public boolean ignore(int i){ return _c[i]._ignore; }
+  public boolean ignore(int i){ return _c[i].isIgnore(); }
   /** Number of available columns (number of columns - number of ignored columns) */
   public final int available_columns()  { return _available_columns; }
 
   /** Returns the number of bins, i.e. the number of distinct values in the
    * column.  Zero if we are ignoring the column. */
-  public int columnArity(int col) { return ignore(col) ? 0 : _c[col]._smax; }
+  public int columnArity(int col) { return _c[col].arity(); }
 
   /** Return a short that represents the binned value of the original row,column value.  */
-  public short getEncodedColumnValue(int rowIndex, int colIndex) { return _c[colIndex].getValue(rowIndex);}
+  public short getEncodedColumnValue(int row, int col) { return _c[col].get(row); }
 
-  /** Return the array of all column names including ignored and class. */
-  public String columnNames(int i) { return _c[i]._name; }
+  public void shrink() {
+    for ( Col c: _c) c.shrink();
+    _numClasses = _c[_classIdx].arity();
+  }
+
+  public String columnName(int i) { return _c[i].name(); }
 
   public boolean isValid(ValueArray va, AutoBuffer ab, int row, int col) {
     if (ignore(col)) return false;
     if (va.isNA(ab,row,col)) return false;
-// FIXME    if (!_c[col]._isFloat) return true;
-//    float f =(float) va.datad(ab,row,col);
-    //if (Float.isInfinite(f)) return false;
+    if (!_c[col].isFloat()) return true;
+    float f =(float) va.datad(ab,row,col);
+    if (Float.isInfinite(f)) return false;
     return true;
   }
 
-  public void addValueRaw(float v, int row, int col){ _c[col].addRaw(v, row); }
+  public void add(float v, int row, int col){ _c[col].add(row,v); }
 
-  public void addValue(short v, int row, int col){ _c[col].setValue(row,v); }
+  public final void addBad(int row, int col) { _c[col].addBad(row); }
 
-  public void addValue(float v, int row, int col){
-    // Find the bin value by lookup in _bin2raw array which is sorted so we can do binary lookup.
-    // The index returned is - length - 1 in case the value
-    int idx = Arrays.binarySearch(_c[col]._binned2raw,v);
-    if(idx < 0)idx = -idx - 1;
-    if(idx >= _c[col]._smax)
-      System.err.println("[DA] unexpected sv = " + idx);
-    // The array lookup can return the length of the array in case the value
-    // would be > max, which should (does) not happen right now, but just in
-    // case for the future, cap it to the max bin value)
-    _c[col].setValue(row, (short)Math.min(_c[col]._smax-1,idx));
-  }
+  public boolean hasBadValue(int row, int col) { return _c[col].isBad(row); }
 
-  /** Mark this row as being invalid for tree-building, typically because it
-     contains invalid data in some columns.*/
-  public void setBad(int row) {
-    if(_c[_classIdx].getValue(row) != -1){ ++_badRows; _c[_classIdx].setValue(row,(short)-1); }
-  }
-
-  /** Should we bin this column? */
-  public boolean binColumn(int col){ return _c[col]._bin; }
-
-  private static class C {
-    enum ColType {BOOL,BYTE,SHORT};
-    ColType _ctype;
-    String _name;
-    public final boolean _ignore, _isClass, _bin, _isFloat;
-    float _min=Float.MAX_VALUE, _max=Float.MIN_VALUE, _tot;
-    short[] _binned;
-    byte [] _bvalues;
-    float[]  _raw;
-    float[] _binned2raw;
-    BitSet _booleanValues;
-    short _smax = -1;
-    int _n;
-    final short _bin_limit;
+  private static class Col {
+    /*Encoded values*/
+    short[] binned;
+    /*Original values, kept only during inhale*/
+    float[] raw;
+    /*Map from binned to original*/
+    float[] binned2raw;
+    boolean isClass, ignore, isFloat;
+    int binLimit;
+    String name;
     static final DecimalFormat df = new  DecimalFormat ("0.##");
+    /** Total number of bad values in the column. */
+    int invalidValues;
+    float min, max;
 
-    C(String s, int rows, boolean isClass, ColType t, boolean bin, boolean ignore, short bin_limit, boolean isFloat) {
-      _name = s;
-      _isFloat = isFloat;
-      _isClass = isClass;
-      _ignore = ignore;
-      _bin = bin;
-      _bin_limit = bin_limit;
-      _ctype = t;
-      _n = rows;
+    Col(String s, int rows, boolean isClass_, boolean ignore_, short binLimit_, boolean isFloat_) {
+      name = s; isFloat = isFloat_; isClass = isClass_; ignore = ignore_; binLimit = binLimit_;
       if( ignore ) return;        // Ignore this column
-      if( bin ) {
-        _raw = MemoryManager.malloc4f(rows);
-        return;
-      }
-      switch( _ctype ) {
-      case BOOL:  _booleanValues = new BitSet(rows);  break;
-      case BYTE:  _bvalues = MemoryManager.malloc1(rows);  break;
-      case SHORT: _binned  = MemoryManager.malloc2(rows);  break;
-      default: throw H2O.unimpl();
-      }
+      raw = MemoryManager.malloc4f(rows);
     }
 
-    public void setValue(int row, short s){
-      switch(_ctype){
-      case BOOL:
-        if(_booleanValues == null) _booleanValues = new BitSet(_n);
-        if(s == 1)_booleanValues.set(row);
-        break;
-      case BYTE:
-        assert (byte)s == s : "(byte)"+s+" name="+_name+" _min="+_min+" _max"+_max;
-        if(_bvalues == null)_bvalues = MemoryManager.malloc1(_n);
-        _bvalues[row] = (byte)s;
-        break;
-      case SHORT:
-        if(_binned == null)_binned = MemoryManager.malloc2(_n);
-        _binned[row] = s;
-      }
-    }
+    boolean isIgnore() { return ignore; }
+    boolean isFloat() { return isFloat; }
+    boolean isClass() { return isClass; }
+    int arity() { return isIgnore()? 0 : binned2raw.length; }
+    String name() { return name; }
+    short get(int row) { return binned[row]; }
+    void add(int row, float val) { raw[row] = val; }
 
-    public short getValue(int i) {
-      switch(_ctype){
-      case BOOL:  return (short)(_booleanValues.get(i)?1:0);
-      case BYTE:  return _bvalues[i];
-      case SHORT: return _binned[i];
-      }
-      throw new Error("illegal column type " + _ctype);
-    }
+    void addBad(int row) { raw[row] = Float.NaN; }
 
-    void addRaw(float x, int row) {
-      _min=Math.min(x,_min);
-      _max=Math.max(x,_max);
-      _tot+=x;
-      if(_raw == null)_raw = MemoryManager.malloc4f(_n);
-      _raw[row] = x;
-    }
+    private boolean isBadRaw(float f) { return Float.isNaN(f); }
+    boolean isBad(int row) { return binned[row] == BAD; }
 
-    public String toString() {
-      String res = "Column("+_name+")";
-      if( _ignore ) return res + " ignored!";
-      res+= "  ["+df.format(_min) +","+df.format(_max)+"], avg=";
-      res+= df.format(_tot/_n) ;
-      if (_isClass) res+= " CLASS ";
-      return res;
-    }
-
-    /** For all columns except the classes - encode all floats as unique shorts.
-     *  For the column holding the classes - encode it as 0-(numclasses-1).
-     *  Sometimes the class allows a zero class (e.g. iris, poker) and sometimes
-     *  it's one-based (e.g. covtype) or -1/+1 (arcene).   */
+    /** For all columns - encode all floats as unique shorts. */
     void shrink() {
-      if( _ignore || _isClass ) return;
-      Arrays.sort(_raw);
-      int ndups = 0, i = 0;
-      // count dups
-      while(i < _raw.length-1){
+      if( ignore ) return;
+      float[] vs = raw.clone();
+      Arrays.sort(vs);
+      int ndups = 0, i = 0, nans = 0; // Counter of all NaNs/Inf
+      while(i < vs.length-1){      // count dups
+        if (isBadRaw(vs[i]))  { nans++; i++; continue; } // skip NaN
         int j = i+1;
-        while(j < _raw.length && _raw[i] == _raw[j]){
-          ++ndups; ++j;
-        }
+        while(j < vs.length && vs[i] == vs[j]){  ++ndups; ++j; }
         i = j;
       }
-      int n = _raw.length - ndups;
-      int rem = n % _bin_limit;
-      int maxBinSize = (n > _bin_limit) ? (n / _bin_limit + Math.min(rem,1)) : 1;
+      invalidValues = nans;
+      assert vs.length > nans : "Nothing but missing values, should ignore column " + name;
+      int n = vs.length - ndups - nans;
+      int rem = n % binLimit;
+      int maxBinSize = (n > binLimit) ? (n / binLimit + Math.min(rem,1)) : 1;
       // Assign shorts to floats, with binning.
-      _binned2raw = MemoryManager.malloc4f(Math.min(n, _bin_limit));
-      _smax = 0;
-      int cntCurBin = 1;
-      _binned2raw[0] = _raw[0];
-      for(i = 1; i < _raw.length; ++i) {
-        if(_raw[i] == _binned2raw[_smax])continue; // remove dups
+      binned2raw = MemoryManager.malloc4f(Math.min(n, binLimit)); // if n is smaller than bin limit no need to compact
+      int smax = 0, cntCurBin = 1;
+      i = 0; while ( isBadRaw(vs[i]) ) i++;  // skip leading NaNs/NAs/Inf
+      binned2raw[0] = vs[i];
+      for(; i < vs.length; ++i) {
+        if(isBadRaw(vs[i])) continue; // skip NaNs
+        if(vs[i] == binned2raw[smax]) continue; // remove dups
         if( ++cntCurBin > maxBinSize ) {
           if(rem > 0 && --rem == 0)--maxBinSize; // check if we can reduce the bin size
-          ++_smax;
+          ++smax;
           cntCurBin = 1;
         }
-        _binned2raw[_smax] = _raw[i];
+        binned2raw[smax] = vs[i];
       }
-      ++_smax;
-      if( n > _bin_limit )  Utils.pln(this+" this column's arity was cut from "+n+" to "+_smax);
-      _binned = MemoryManager.malloc2(_n);
-      _raw = null;
+      ++smax;
+      for(i = 0; i< vs.length; i++) if (!isBadRaw(vs[i])) break;
+      min = vs[i];
+      for(i = vs.length -1; i>= 0; i--) if (!isBadRaw(vs[i])) break;
+      max = vs[i];
+      vs = null;
+      binned = MemoryManager.malloc2(raw.length);
+      // Find the bin value by lookup in bin2raw array which is sorted so we can do binary lookup.
+      for(i = 0; i < raw.length; i++)
+        if (isBadRaw(raw[i])) binned[i] = BAD;
+        else {
+          short idx = (short) Arrays.binarySearch(binned2raw, raw[i]);
+          if (idx >= 0) binned[i] = idx;
+          else binned[i] = (short) (-idx - 1); // this occurs when we are looking for a binned value, we return the smaller value in the array.
+          assert binned[i] < binned2raw.length;
+        }
+      if( n > binLimit )  Utils.pln(this+" this column's arity was cut from "+n+" to "+smax);
+    }
+
+    /**Given an encoded short value, return the original float*/
+    public float raw(int idx) { return binned2raw[idx]; }
+
+    /**Given an encoded short value, return the float that splits that value with the next.*/
+    public float rawSplit(int idx){
+      if (idx == BAD) return Float.NaN;
+      float flo = binned2raw[idx+0]; // Convert to the original values
+      float fhi = binned2raw[idx+1];
+      float fmid = (flo+fhi)/2.0f; // Compute a split-value
+      assert flo < fmid && fmid < fhi : "Values " + flo +","+fhi ; // Assert that the float will properly split
+      return fmid;
+    }
+
+    int rows() { return binned.length; }
+
+    public String toString() {
+      String res = "Column("+name+")";
+      if( ignore ) return res + " ignored!";
+      res+= "  ["+df.format(min) +","+df.format(max)+"]";
+      res+=",bad values = " + invalidValues + "/" + rows();
+      if (isClass) res+= " CLASS ";
+      return res;
     }
   }
+
 }

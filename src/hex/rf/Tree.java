@@ -122,10 +122,8 @@ public class Tree extends CountedCompleter {
       ? new LeafNode(spl._split, d.rows())
       : new FJBuild (spl, d, 0, _seed).compute();
 
-    if (_verbose > 1)
-      Utils.pln(computeStatistics().toString());
+    if (_verbose > 1) Utils.pln(computeStatistics().toString());
     _stats = null; // GC
-
     // Atomically improve the Model as well
     appendKey(_modelKey,toKey());
     StringBuilder sb = new StringBuilder("[RF] Tree : ").append(_data_id+1);
@@ -315,7 +313,8 @@ public class Tree extends CountedCompleter {
       // Size is: 1 byte indicator, 2 bytes col, 4 bytes val, the skip, then left, right
       return _size=(1+2+4+(( _l.size() <= 254 ) ? 1 : 4)+_l.size()+_r.size());
     }
-    public boolean isIn(Row row) {  return row.getEncodedColumnValue(_column) <= _split; }
+    public boolean isIn(final Row row) {  return row.getEncodedColumnValue(_column) <= _split; }
+    public final boolean canDecideAbout(final Row row) { return row.hasValidValue(_column); }
   }
 
   /** Node that classifies one column category to the left and the others to the right. */
