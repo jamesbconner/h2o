@@ -121,7 +121,7 @@ public final class DRF extends water.DRemoteTask {
     for(int i=0;i<ignores.length;i++) ig += ignores[i]+",";
     _.ignores = ig;
     String w = "";
-    for(int i=0;i<classWt.length;i++) w += i+":"+classWt[i]+",";
+    if (classWt != null) for(int i=0;i<classWt.length;i++) w += i+":"+classWt[i]+",";
     _.weights=w;
     _.parallel = parallelTrees ? 1 : 0;
     _.statType = stat.ordinal() == 1 ? "gini" : "entropy";
