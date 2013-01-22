@@ -23,11 +23,7 @@ class Basic(unittest.TestCase):
         # cols 0-13. 3 is output
         # no member id in this one
         for appendx in xrange(14):
-            if (appendx == 1): 
-                print "\nSkipping 1. Causes NaN. Ok now, later though?"
-            elif (appendx == 2): 
-                print "\nSkipping 2. Causes NaN. Ok now, later though?"
-            elif (appendx == 3): 
+            if (appendx == 3): 
                 print "\n3 is output."
             else:
                 if x == "": 
@@ -46,7 +42,8 @@ class Basic(unittest.TestCase):
                 # fails with xval
                 print "Not doing xval with benign. Fails with 'unable to solve?'"
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=5, **kwargs)
-                h2o_glm.simpleCheckGLM(self, glm, 'STR', **kwargs)
+                # no longer look at STR?
+                h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 
     def test_C_prostate(self):
         print "\nStarting prostate.csv"
@@ -62,8 +59,6 @@ class Basic(unittest.TestCase):
                 print "\n0 is member ID. not used"
             elif (appendx == 1):
                 print "\n1 is output."
-            elif (appendx == 7): 
-                print "\nSkipping 7. Causes NaN. Ok now, later though?"
             else:
                 if x == "": 
                     x = str(appendx)

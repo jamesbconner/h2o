@@ -130,9 +130,10 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
         for c in coefficients:
             v = coefficients[c]
             s += abs(float(v))
-            self.assertGreater(s, 1e-18, (
-                "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
-                ))
+
+        self.assertGreater(s, 1e-18, (
+            "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
+            ))
 
     
     return (warnings, cList, intercept)
