@@ -89,41 +89,47 @@ public final class DRF extends water.DRemoteTask {
   /** Key for the training data. */
   public final Key aryKey()           { return _arykey; }
 
-  public static DRF webMain(
-      ValueArray ary,
-      int ntrees, int depth, float sample, short binLimit, StatType stat,
-      long seed, int classcol, int[] ignores, Key modelKey,
-      boolean parallelTrees, double[] classWt, int numSplitFeatures,
-      boolean stratify, Map<Integer,Integer> strata, int verbose,
-      int exclusiveSplitLimit) {
+  public static DRF webMain(ValueArray ary, int ntrees, int depth, float sample, short binLimit, StatType stat,
+      long seed, int classcol, int[] ignores, Key modelKey, boolean parallelTrees, double[] classWt, int numSplitFeatures,
+      boolean stratify, Map<Integer,Integer> strata, int verbose, int exclusiveSplitLimit) {
     DRF drf = new DRF();
     assert numSplitFeatures==-1 || ((numSplitFeatures>0) && (numSplitFeatures<ary._cols.length)) : "Bad number of split features: expected -1 or a number in range (0, num of cols)";
-    drf._numSplitFeatures = numSplitFeatures;
-    drf._parallel         = parallelTrees;
-    drf._ntrees           = ntrees;
-    drf._depth            = depth;
-    drf._stat             = stat.ordinal();
-    drf._arykey           = ary._key;
-    drf._classcol         = classcol;
-    drf._seed             = seed;
-    drf._ignores          = ignores;
-    drf._modelKey         = modelKey;
+    RandomForest.OptArgs _ = new RandomForest.OptArgs();
+
+    _.features = drf._numSplitFeatures = numSplitFeatures;
+                 drf._parallel         = parallelTrees;
+    _.ntrees   = drf._ntrees           = ntrees;
+    _.depth    = drf._depth            = depth;
+                 drf._stat             = stat.ordinal();
+                 drf._arykey           = ary._key;
+    _.classcol = drf._classcol         = classcol;
+    _.seed     = drf._seed             = seed;
+                 drf._ignores          = ignores;
+                 drf._modelKey         = modelKey;
     assert 0.0f <= sample && sample <= 1.0f;
-    drf._sample           = sample;
-    drf._binLimit         = binLimit;
-    drf._classWt          = classWt;
-    drf._verbose          = verbose;
-    drf._exclusiveSplitLimit = exclusiveSplitLimit;
+                 drf._sample           = sample;
+    _.binLimit = drf._binLimit         = binLimit;
+                 drf._classWt          = classWt;
+    _.verbose  = drf._verbose          = verbose;
+    _.exclusive = drf._exclusiveSplitLimit = exclusiveSplitLimit;
     drf._useStratifySampling = stratify;
     // Validate parameters
     drf.validateInputData(ary);
     // Start the timer.
     drf._t_main = new Timer();
+    String ig ="";
+    for(int i=0;i<ignores.length;i++) ig += ignores[i]+",";
+    _.ignores = ig;
+    String w = "";
+    for(int i=0;i<classWt.length;i++) w += i+":"+classWt[i]+",";
+    _.weights=w;
+    _.parallel = parallelTrees ? 1 : 0;
+    _.statType = stat.ordinal() == 1 ? "gini" : "entropy";
+    _.sample = (int)(sample * 100); _.file = "";
+    if (verbose>0) Utils.pln("Web arguments: " + _ + " key "+ary._key);
 
     // Pre-process data in case of stratified sampling: extract minorities
-    if(drf._useStratifySampling) {
-      drf.extractMinorities(ary, strata);
-    }
+    if(drf._useStratifySampling)  drf.extractMinorities(ary, strata);
 
     Column c = ary._cols[classcol];
     final int classes = (short)((c._max - c._min)+1);
