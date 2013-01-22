@@ -29,7 +29,9 @@ final class DataAdapter  {
   /** Maximum arity for a column (not a hard limit) */
   final short _bin_limit;
   /** Number of available columns */
-  private final int _available_columns;
+  private final int _availableColumns;
+  /** Number of bad rows */
+  private int _ignoredRows;
 
   DataAdapter(ValueArray ary, int classCol, int[] ignores, int rows,
               long unique, long seed, short bin_limit, double[] classWt) {
@@ -40,7 +42,7 @@ final class DataAdapter  {
     _c = new Col[cols.length];
     _classIdx = classCol;
     assert ignores.length < cols.length - 1 : "Too many ignores";
-    int available_columns = 0;
+    int availableColumns = 0;
     for( int i = 0; i < cols.length; i++ ) {
       boolean ignore = Ints.indexOf(ignores, i) >= 0;
       if (ignore) assert i != _classIdx : "Trying to ignore class feature";
@@ -50,14 +52,14 @@ final class DataAdapter  {
       if( i==_classIdx ) range++; // Allow -1 as the invalid-row flag in the class
       if (range==0) { ignore = true; Utils.pln("[DA] Ignoring column " + i + " as all values are identical.");   }
       _c[i]= new Col(c._name, rows, i==_classIdx,ignore,_bin_limit, c.isFloat());
-      available_columns += !_c[i].isIgnore() ? 1 : 0;
+      availableColumns += !_c[i].isIgnore() ? 1 : 0;
     }
     _dataId = unique;
     _numRows = rows;
     _classWt = classWt;
-    assert available_columns <= cols.length - ignores.length : "Available columns are computed in wrong way!";
-    assert available_columns > 0 : "All columns are unusable";
-    _available_columns = available_columns;
+    assert availableColumns <= cols.length - ignores.length : "Available columns are computed in wrong way!";
+    assert availableColumns > 0 : "All columns are unusable";
+    _availableColumns = availableColumns;
   }
 
   public void initIntervals(int n){
@@ -89,7 +91,7 @@ final class DataAdapter  {
   /** True if we should ignore column i. */
   public boolean ignore(int i){ return _c[i].isIgnore(); }
   /** Number of available columns (number of columns - number of ignored columns) */
-  public final int available_columns()  { return _available_columns; }
+  public final int availableColumns()  { return _availableColumns; }
 
   /** Returns the number of bins, i.e. the number of distinct values in the
    * column.  Zero if we are ignoring the column. */
@@ -120,12 +122,19 @@ final class DataAdapter  {
 
   public boolean hasBadValue(int row, int col) { return _c[col].isBad(row); }
 
+  public boolean isBadRow(int row) { return _c[_classIdx].isBad(row); }
+
+  public void markIgnoredRow(int row) {
+    _c[_classIdx].addBad(row);
+    _ignoredRows++;
+  }
+
   private static class Col {
-    /*Encoded values*/
+    /** Encoded values*/
     short[] binned;
-    /*Original values, kept only during inhale*/
+    /** Original values, kept only during inhale*/
     float[] raw;
-    /*Map from binned to original*/
+    /** Map from binned to original*/
     float[] binned2raw;
     boolean isClass, ignore, isFloat;
     int binLimit;
@@ -158,10 +167,10 @@ final class DataAdapter  {
     void shrink() {
       if( ignore ) return;
       float[] vs = raw.clone();
-      Arrays.sort(vs);
-      int ndups = 0, i = 0, nans = 0; // Counter of all NaNs/Inf
+      Arrays.sort(vs); // Sort puts all Float.NaN at the end of the array (according Float.NaN doc)
+      int ndups = 0, i = 0, nans = 0; // Counter of all NaNs
       while(i < vs.length-1){      // count dups
-        if (isBadRaw(vs[i]))  { nans++; i++; continue; } // skip NaN
+        if (isBadRaw(vs[i+1]))  { nans = vs.length - i - 1; break; } // skip all NaNs
         int j = i+1;
         while(j < vs.length && vs[i] == vs[j]){  ++ndups; ++j; }
         i = j;
@@ -174,10 +183,10 @@ final class DataAdapter  {
       // Assign shorts to floats, with binning.
       binned2raw = MemoryManager.malloc4f(Math.min(n, binLimit)); // if n is smaller than bin limit no need to compact
       int smax = 0, cntCurBin = 1;
-      i = 0; while ( isBadRaw(vs[i]) ) i++;  // skip leading NaNs/NAs/Inf
+      i = 0;
       binned2raw[0] = vs[i];
       for(; i < vs.length; ++i) {
-        if(isBadRaw(vs[i])) continue; // skip NaNs
+        if(isBadRaw(vs[i])) break; // the first NaN, there are only NaN in the rest of vs[] array
         if(vs[i] == binned2raw[smax]) continue; // remove dups
         if( ++cntCurBin > maxBinSize ) {
           if(rem > 0 && --rem == 0)--maxBinSize; // check if we can reduce the bin size
@@ -187,15 +196,17 @@ final class DataAdapter  {
         binned2raw[smax] = vs[i];
       }
       ++smax;
-      for(i = 0; i< vs.length; i++) if (!isBadRaw(vs[i])) break;
-      min = vs[i];
+//      for(i = 0; i< vs.length; i++) if (!isBadRaw(vs[i])) break;
+      // All Float.NaN are at the end of vs => min is stored in vs[0]
+      min = vs[0];
       for(i = vs.length -1; i>= 0; i--) if (!isBadRaw(vs[i])) break;
       max = vs[i];
-      vs = null;
+      vs = null; // GCed
       binned = MemoryManager.malloc2(raw.length);
       // Find the bin value by lookup in bin2raw array which is sorted so we can do binary lookup.
       for(i = 0; i < raw.length; i++)
-        if (isBadRaw(raw[i])) binned[i] = BAD;
+        if (isBadRaw(raw[i]))
+          binned[i] = BAD;
         else {
           short idx = (short) Arrays.binarySearch(binned2raw, raw[i]);
           if (idx >= 0) binned[i] = idx;
@@ -203,6 +214,7 @@ final class DataAdapter  {
           assert binned[i] < binned2raw.length;
         }
       if( n > binLimit )  Utils.pln(this+" this column's arity was cut from "+n+" to "+smax);
+      raw = null; // GCced
     }
 
     /**Given an encoded short value, return the original float*/
@@ -212,7 +224,7 @@ final class DataAdapter  {
     public float rawSplit(int idx){
       if (idx == BAD) return Float.NaN;
       float flo = binned2raw[idx+0]; // Convert to the original values
-      float fhi = binned2raw[idx+1];
+      float fhi = (idx+1 < binned2raw.length)? binned2raw[idx+1] : flo+1.f;
       float fmid = (flo+fhi)/2.0f; // Compute a split-value
       assert flo < fmid && fmid < fhi : "Values " + flo +","+fhi ; // Assert that the float will properly split
       return fmid;
@@ -221,13 +233,13 @@ final class DataAdapter  {
     int rows() { return binned.length; }
 
     public String toString() {
-      String res = "Column("+name+")";
+      String res = "Column("+name+"){";
       if( ignore ) return res + " ignored!";
-      res+= "  ["+df.format(min) +","+df.format(max)+"]";
-      res+=",bad values = " + invalidValues + "/" + rows();
+      res+= " ["+df.format(min) +","+df.format(max)+"]";
+      res+=",bad values=" + invalidValues + "/" + rows();
       if (isClass) res+= " CLASS ";
+      res += "}";
       return res;
     }
   }
-
 }

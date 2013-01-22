@@ -122,8 +122,10 @@ public class Tree extends CountedCompleter {
       ? new LeafNode(spl._split, d.rows())
       : new FJBuild (spl, d, 0, _seed).compute();
 
-    if (_verbose > 1) Utils.pln(computeStatistics().toString());
+    if (_verbose > 1)
+      Utils.pln(computeStatistics().toString());
     _stats = null; // GC
+
     // Atomically improve the Model as well
     appendKey(_modelKey,toKey());
     StringBuilder sb = new StringBuilder("[RF] Tree : ").append(_data_id+1);

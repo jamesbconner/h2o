@@ -44,6 +44,7 @@ class DABuilder {
     throw new Error("No key on this node");
   }
 
+  /** Build data adapter for given array */
   protected  DataAdapter inhaleData(final Key arykey, final Key [] keys) {
     final ValueArray ary = ValueArray.value(DKV.get(arykey));
     final int rowsize = ary._rowsize;
@@ -72,10 +73,18 @@ class DABuilder {
           AutoBuffer bits = ary.getChunk(k);
           for(int j = 0; j < rows; ++j) {
             int rowNum = S + j; // row number in the subset of the data on the node
-            for( int c = 0; c < ncolumns; ++c)
+            boolean rowIsValid = false;
+            for( int c = 0; c < ncolumns; ++c) {
               if( dapt.ignore(c) ) continue;
               else if( !dapt.isValid(ary,bits,j,c)) dapt.addBad(rowNum, c);
-              else dapt.add((float)ary.datad(bits,j,c), rowNum, c);
+              else {
+                dapt.add((float)ary.datad(bits,j,c), rowNum, c);
+                if (c!=_drf._classcol) // if the row contains at least one correct value except class column consider it as correct
+                  rowIsValid |= true;
+              }
+            }
+            // The whole row is invalid in the following cases: all values are NaN or there is no class specified (NaN in class column)
+            if (!rowIsValid) dapt.markIgnoredRow(j);
           }
         }});
       start_row += rows;
