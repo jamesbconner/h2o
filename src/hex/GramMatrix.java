@@ -52,7 +52,7 @@ public final class GramMatrix extends Iced {
     return new Matrix(_xy, _xy.length);
   }
 
-  public boolean hasNaNsOrInfs(){
+  public boolean hasNaNsOrInfs() {
     for(int i = 0; i < _xx.length; ++i){
       if(Double.isNaN(_xy[i]) || Double.isInfinite(_xy[i])) return true;
       for(double d:_xx[i])

@@ -1,11 +1,11 @@
 package test;
 import static org.junit.Assert.assertEquals;
 import com.google.gson.*;
-import hex.LinearRegression;
+import hex.GLMSolver.GLMModel;
 import hex.GLMSolver;
 import hex.LSMSolver;
-import hex.GLMSolver.GLMModel;
-
+import hex.LinearRegression;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
 import org.junit.*;
@@ -19,6 +19,12 @@ import water.parser.ParseDataset;
 // tests are also good).
 
 public class GLMTest extends TestUtil {
+  static double[] THRESHOLDS;
+  static {
+    THRESHOLDS = new double[100];
+    for( int i=0; i<THRESHOLDS.length; i++ )
+      THRESHOLDS[i] = i/100.0;
+  }
 
   JsonObject computeGLMlog( LSMSolver lsms, ValueArray va, boolean cat ) {
     return computeGLM( GLMSolver.Family.binomial, lsms, va, cat, null); }
@@ -42,6 +48,7 @@ public class GLMTest extends TestUtil {
     GLMModel m = new GLMModel(va, cols, lsms, glmp, null);
     // Solve it!
     m.compute();
+    m.validateOn(va, null,THRESHOLDS);// Validate...
     JsonObject glm = m.toJson();
     return glm;
   }
@@ -221,6 +228,48 @@ public class GLMTest extends TestUtil {
       UKV.remove(k1);
       if( k2 != null ) UKV.remove(k2);
     }
+  }
+
+  // Test of convergence on this dataset.  It appears that the 'betas' increase
+  // with every iteration until we hit Infinities.
+  /*@Test*/ public void testConverge() {
+    Key k1= loadAndParseKey("m.hex","smalldata/logreg/make_me_converge_10000x5.csv");
+    ValueArray va = ValueArray.value(DKV.get(k1));
+    // Compute the coefficients
+    LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA);
+    JsonObject glm = computeGLMlog( lsmsx, va, false );
+    
+    // From the validations get the chosen threshold
+    final JsonArray vals = glm.get("validations").getAsJsonArray();
+    JsonElement val = vals.get(0); // Get first validation
+    double threshold = ((JsonObject)val).get("threshold").getAsDouble();
+
+    // Scrape out the coefficients to build an equation
+    final JsonObject coefs = glm.get("coefficients").getAsJsonObject();
+    final double icept = coefs.get("Intercept").getAsDouble();
+    final double c[] = new double[5];
+    for( int i=0; i<c.length; i++ )
+      c[i] = coefs.get(Integer.toString(i)).getAsDouble();
+
+    // Now run the dataset through the equation and see how close we got
+    AutoBuffer ab = va.getChunk(0);
+    final int nrows = va.rpc(0);
+    for( int i=0; i<nrows; i++ ) {
+      double x = icept;
+      for( int j=0; j<c.length; j++ )
+        x += c[j]*va.datad(ab,i,j);
+      final double pred = 1.0/(1.0+Math.exp(-x)); // Prediction
+      final long p = pred < threshold ? 0 : 1;    // Thresholded
+      final long actl = va.data(ab,i,5);          // Actual
+      assertEquals(actl,p);
+    }
+    UKV.remove(k1);
+
+    // No convergence warnings
+    final JsonArray warns = glm.get("warnings").getAsJsonArray();
+    for( JsonElement e : warns )
+      System.err.println(e.getAsString());
+    assertEquals(0, warns.size()); 
   }
 
   // Categorical Test!  Lets make a simple categorical test case
