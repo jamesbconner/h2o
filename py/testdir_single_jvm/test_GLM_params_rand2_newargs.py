@@ -23,7 +23,9 @@ def define_params():
         # 'norm': [None,'L1', 'L2'],
         # always need L1 or L2? to avoid Gram Matrix SPD
         'norm': ['L1', 'L2', 'ELASTIC'],
-        'lambda': [None, 1e-8, 1e-4,1,10,1e4],
+        # 'lambda': [None, 1e-8, 1e-4,1,10,1e4],
+        # Update: None is a problem with 'fail to converge'
+        'lambda': [1e-8, 1e-4,1],
         'rho': [None, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.2,0.8,1],
         'beta_eps': [None, 0.0001],
@@ -31,7 +33,8 @@ def define_params():
         # FIX! will n/a be like NaN and make covtype break?
         # if caseMode=n/a the browser doesn't allow case?
         # emulate that below..UPDATE: doesn't work for covtype, always need case
-        'caseMode': [None,'n/a','>','<','=','<=','>='],
+        # Update: n/a can't be used with covtype
+        'caseMode': ['>','<','=','<=','>='],
         # FIX! inverse and log were causing problems..add back in?
         # 'link': [None, 'familyDefault', 'logit','identity', 'log', 'inverse'],
         'link': [None, 'logit'],
