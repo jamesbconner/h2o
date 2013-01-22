@@ -940,16 +940,16 @@ public class RequestArguments extends RequestStatics {
   }
 
   public static class NumberSequence {
-    public double [] arr;
-    String _str;
+    public final double [] _arr;
+    final String _str;
 
-    public NumberSequence(double [] val){
-      arr = val;
+    public NumberSequence(double [] val, String str){
+      _arr = val;
+      _str = str;
     }
 
     public NumberSequence(String str, boolean mul, double defaultStep){
-      this(parseArray(str,mul,defaultStep));
-      _str = str;
+      this(parseArray(str,mul,defaultStep),str);
     }
 
     private static double [] parseArray(String input, boolean mul, double defaultStep){
@@ -990,16 +990,16 @@ public class RequestArguments extends RequestStatics {
 
     }
     static NumberSequence parse(String input, boolean mul, double defaultStep){
-      return new NumberSequence(parseArray(input, mul, defaultStep));
+      return new NumberSequence(parseArray(input, mul, defaultStep),null);
     }
     public String toString(){
       if(_str != null)return _str;
-      if(arr == null || arr.length == 0)return"";
+      if(_arr == null || _arr.length == 0)return"";
 
       StringBuilder res = new StringBuilder();
-      res.append(arr[0]);
-      for(int i = 1; i < arr.length; ++i)
-        res.append("," + arr[i]);
+      res.append(_arr[0]);
+      for(int i = 1; i < _arr.length; ++i)
+        res.append("," + _arr[i]);
       return res.toString();
     }
   }

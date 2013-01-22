@@ -99,9 +99,9 @@ public class GLMGrid extends Request {
                         _key.value(), // Hex data
                         glmp,
                         getCols(_x.value(), _y.value()),
-                        _lambda.value().arr,   // Grid ranges
-                        _alpha.value().arr,     // Grid ranges
-                        _thresholds.value().arr,
+                        _lambda.value()._arr, // Grid ranges
+                        _alpha.value()._arr,  // Grid ranges
+                        _thresholds.value()._arr,
                         _xval.value());
 
     // Put the task Out There for all to find
