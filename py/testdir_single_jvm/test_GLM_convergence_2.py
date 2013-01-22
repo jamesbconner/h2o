@@ -25,7 +25,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             result = 0
 
         rowData.append(str(result))
-        print colCount, rowTotal, result
+        ### print colCount, rowTotal, result
         rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
@@ -112,14 +112,8 @@ class Basic(unittest.TestCase):
                 print 'glm #', i, 'end on', csvPathname, 'took', time.time() - start, 'seconds'
                 # we can pass the warning, without stopping in the test, so we can 
                 # redo it in the browser for comparison
-                warnings = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
-
-                # print coefficients in col order. we know there is no header, 
-                # so using 0:53 will work on the dict
-                # it's a dictionary!
-                coefficients = glm['GLMModel']['coefficients']
-                # get the intercept out of there into it's own dictionary
-                intercept = coefficients.pop('Intercept', None)
+                (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, 
+                    glm, None, allowFailWarning=True, **kwargs)
 
                 print "\n", "\ncoefficients in col order:"
                 # since we're loading the x50 file all the time..the real colCount 
@@ -129,13 +123,15 @@ class Basic(unittest.TestCase):
                 else:
                     showCols = colCount
                 for c in range(showCols):
-                    print "%s:\t%s" % (c, coefficients[unicode(c)])
+                    print "%s:\t%s" % (c, coefficients[c])
                 print "intercept:\t", intercept
 
                 # gets the failed to converge, here, after we see it in the browser too
                 x = re.compile("[Ff]ailed")
                 if warnings:
+                    print "warnings:", warnings
                     for w in warnings:
+                        print "w:", w
                         if (re.search(x,w)): 
                             # first
                             if emsg is None: emsg = w
