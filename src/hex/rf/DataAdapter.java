@@ -56,7 +56,9 @@ final class DataAdapter  {
     }
     _dataId = unique;
     _numRows = rows;
-    _classWt = classWt;
+    boolean trivial = true;
+    for(double f: classWt) if (f != 1.0) trivial = false;
+    _classWt = trivial ?  null : classWt;
     assert availableColumns <= cols.length - ignores.length : "Available columns are computed in wrong way!";
     assert availableColumns > 0 : "All columns are unusable";
     _availableColumns = availableColumns;
