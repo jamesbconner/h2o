@@ -106,7 +106,7 @@ public class DebugView extends H2OPage {
     int repl = key.replica(cloud);
     if( repl < r ) { // If we should be replicating, then report what replication we know of
       int d = val.numReplicas();
-      if( val.is_persisted() ) d++; // One more for self
+      if( val.isPersisted() ) d++; // One more for self
       if( d < r )
         row.replace("replicationStyle","background-color:#ffc0c0;color:#ff0000;");
       row.replace("r1",d);
@@ -125,7 +125,7 @@ public class DebugView extends H2OPage {
     row.replace("max",val._max);
     row.replace("in_mem",val.mem()==null ? "null" : val.mem().length);
     // Now the first 100 bytes of Value as a String
-    row.replace("persist", val.is_persisted() ? val.name_persist() : "mem");
+    row.replace("persist", val.isPersisted() ? val.nameOfPersist() : "mem");
     row.append();
   }
 

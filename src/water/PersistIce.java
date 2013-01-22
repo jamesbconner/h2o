@@ -178,10 +178,10 @@ public abstract class PersistIce {
   // disk.  A racing delete can trigger a failure where we get a null return,
   // but no crash (although one could argue that a racing load&delete is a bug
   // no matter what).
-  static byte[] file_load(Value v) {
+  static byte[] fileLoad(Value v) {
     File f = encodeKeyToFile(v);
     if( f.length() < v._max ) { // Should be fully on disk... or
-      assert !v.is_persisted(); // or it's a racey delete of a spilled value
+      assert !v.isPersisted(); // or it's a racey delete of a spilled value
       return null;              // No value
     }
     byte[] b = MemoryManager.malloc1(v._max);
@@ -199,9 +199,9 @@ public abstract class PersistIce {
   }
 
   // Store Value v to disk.
-  static void file_store(Value v) {
+  static void fileStore(Value v) {
     // A perhaps useless cutout: the upper layers should test this first.
-    if( v.is_persisted() ) return;
+    if( v.isPersisted() ) return;
     try {
       new File(iceRoot,getDirectoryForKey(v._key)).mkdirs();
       // Nuke any prior file.
@@ -228,8 +228,8 @@ public abstract class PersistIce {
     }
   }
 
-  static void file_delete(Value v) {
-    assert !v.is_persisted();   // Upper layers already cleared out
+  static void fileDelete(Value v) {
+    assert !v.isPersisted();   // Upper layers already cleared out
     File f = encodeKeyToFile(v);
     f.delete();
     if( v._isArray != 0 ) { // Also nuke directory if the top-level ValueArray dies
@@ -238,7 +238,7 @@ public abstract class PersistIce {
     }
   }
 
-  static Value lazy_array_chunk( Key key ) {
+  static Value lazyArrayChunk( Key key ) {
     assert key._kb[0] == Key.ARRAYLET_CHUNK;
     assert key.home();          // Only do this on the home node
     File f = encodeKeyToFile(key,Value.ICE);

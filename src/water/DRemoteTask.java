@@ -117,7 +117,7 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
       // Block for remote exec & reduce results into _drt
       if( _lo != null ) reduce(_lo.get());
       if( _hi != null ) reduce(_hi.get());
-      if( _fs != null ) _fs.block_pending(); // Block on all other pending tasks, also
+      if( _fs != null ) _fs.blockForPending(); // Block on all other pending tasks, also
       return DRemoteTask.this;
     }
   };

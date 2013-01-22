@@ -126,7 +126,7 @@ public abstract class PersistHdfs {
   // disk.  A racing delete can trigger a failure where we get a null return,
   // but no crash (although one could argue that a racing load&delete is a bug
   // no matter what).
-  public static byte[] file_load(Value v) {
+  public static byte[] fileLoad(Value v) {
     byte[] b = MemoryManager.malloc1(v._max);
     FSDataInputStream s = null;
     try {
@@ -144,7 +144,7 @@ public abstract class PersistHdfs {
       s = _fs.open(getPathForKey(k));
       ByteStreams.skipFully(s, skip);
       ByteStreams.readFully(s, b);
-      assert v.is_persisted();
+      assert v.isPersisted();
       return b;
     } catch( IOException e ) { // Broken disk / short-file???
       System.err.println(e);
@@ -155,10 +155,10 @@ public abstract class PersistHdfs {
   }
 
   // Store Value v to disk.
-  public static void file_store(Value v) {
+  public static void fileStore(Value v) {
     // Only the home node does persistence on NFS
     if( !v._key.home() ) return;
-    assert !v.is_persisted();
+    assert !v.isPersisted();
 
     // Never store arraylets on NFS, instead we'll store the entire array.
     assert v._isArray==0;
@@ -180,14 +180,14 @@ public abstract class PersistHdfs {
     //}
   }
 
-  static public void file_delete(Value v) {
-    assert !v.is_persisted(); // Upper layers already cleared out
+  static public void fileDelete(Value v) {
+    assert !v.isPersisted(); // Upper layers already cleared out
     throw H2O.unimpl();
     //File f = getFileForKey(v._key);
     //f.delete();
   }
 
-  static public Value lazy_array_chunk( Key key ) {
+  static public Value lazyArrayChunk( Key key ) {
     Key arykey = ValueArray.getArrayKey(key);  // From the base file key
     long off = ValueArray.getChunkOffset(key); // The offset
     long size = 0;

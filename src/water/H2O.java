@@ -295,7 +295,7 @@ public final class H2O {
     // If the K/V mapping is going away, remove the old guy.
     // If the K/V mapping is changing, let the store cleaner just overwrite.
     // If the K/V mapping is new, let the store cleaner just create
-    if( old != null && val == null ) old.remove_persist(); // Remove the old guy
+    if( old != null && val == null ) old.removePersist(); // Remove the old guy
     if( val != null ) dirty_store(); // Start storing the new guy
     return old; // Return success
   }
@@ -315,7 +315,7 @@ public final class H2O {
   // Raw put; no marking the memory as out-of-sync with disk. Used to import
   // initial keys from local storage, or to intern keys.
   public static final Value putIfAbsent_raw( Key key, Value val ) {
-    assert val.is_same_key(key);
+    assert val.isSameKey(key);
     Value res = STORE.putIfMatchUnlocked(key,val,null);
     assert res == null;
     return res;
@@ -326,7 +326,7 @@ public final class H2O {
     Value v = STORE.get(key);
     // Lazily manifest array chunks, if the backing file exists.
     if( v == null ) {
-      v = Value.lazy_array_chunk(key);
+      v = Value.lazyArrayChunk(key);
       if( v == null ) return null;
       // Insert the manifested value, as-if it existed all along
       Value res = putIfMatch(key,v,null);
@@ -830,9 +830,9 @@ public final class H2O {
           // Should I write this value out to disk?
           // Should I further force it from memory?
           if( force || lazy_clean(key) ) {
-            if( VERBOSE && !val.is_persisted() ) { System.out.print('.'); cleaned += m.length; }
-            val.store_persist(); // Write to disk
-            if( force ) val.free_mem(); // And, under pressure, free mem
+            if( VERBOSE && !val.isPersisted() ) { System.out.print('.'); cleaned += m.length; }
+            val.storePersist(); // Write to disk
+            if( force ) val.freeMem(); // And, under pressure, free mem
             if( VERBOSE ) freed += m.length;
           }
         }

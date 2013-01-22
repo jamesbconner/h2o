@@ -3,8 +3,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Properties;
+
 import water.*;
-import water.web.Page.PageError;
 
 public class Remote extends H2OPage {
 

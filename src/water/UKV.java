@@ -19,7 +19,7 @@ public abstract class UKV {
   static public void put( Key key, Value val ) {
     Futures fs = new Futures();
     put(key,val,fs);
-    fs.block_pending();         // Block for remote-put to complete
+    fs.blockForPending();         // Block for remote-put to complete
   }
   static public void put( Key key, Value val, Futures fs ) {
     Value res = DKV.put(key,val,fs);
@@ -34,13 +34,13 @@ public abstract class UKV {
     if( key._kb[0] == Key.KEY_OF_KEYS ) // Key-of-keys?
       for( Key k : res.flatten() )      // Then recursively delete
         remove(k,fs);
-    if( res != null ) res.free_mem();
+    if( res != null ) res.freeMem();
   }
 
   static public void remove( Key key ) {
     Futures fs = new Futures();
     remove(key,fs);             // Recursively delete, gather pending deletes
-    fs.block_pending();         // Block until all is deleted
+    fs.blockForPending();         // Block until all is deleted
   }
   // Recursively remove, gathering all the pending remote key-deletes
   static private void remove( Key key, Futures fs ) {
