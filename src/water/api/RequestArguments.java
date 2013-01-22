@@ -1514,6 +1514,49 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
+
+  public class H2OGLMModelKey extends TypeaheadInputText<GLMModel> {
+
+    public final Key _defaultKey;
+
+    public H2OGLMModelKey(String name) {
+      super(TypeaheadGLMModelKeyRequest.class, name, true);
+      _defaultKey = null;
+    }
+
+    public H2OGLMModelKey(String name, String keyName) {
+      this(name, Key.make(keyName));
+    }
+
+
+    public H2OGLMModelKey(String name, Key key) {
+      super(TypeaheadGLMModelKeyRequest.class, name, false);
+      _defaultKey = key;
+    }
+
+    @Override protected GLMModel parse(String input) throws IllegalArgumentException {
+      if(!input.startsWith(GLMModel.KEY_PREFIX))
+        throw new IllegalArgumentException("Key "+input+" is not a GLMModel key");
+      Key k = Key.make(input);
+      Value v = DKV.get(k);
+      if (v == null)
+        throw new IllegalArgumentException("Key "+input+" not found!");
+      try {
+        return new GLMModel().read(new AutoBuffer(v.get()));
+      } catch(Throwable t) {
+        throw new IllegalArgumentException("Key "+input+" is not a GLMModel key");
+      }
+    }
+
+    @Override protected GLMModel defaultValue() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override protected String queryDescription() {
+      return "an existing H2O HEX key";
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // StringListArgument
   // ---------------------------------------------------------------------------

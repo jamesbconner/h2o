@@ -392,10 +392,7 @@ public class GLMSolver {
         _warnings = warns.toArray(new String[warns.size()]);
     }
 
-    public void validateOn(ValueArray ary, Sampling s){
-      validateOn(ary, s,DEFAULT_THRESHOLDS);
-    }
-    public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
+   public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
       int [] colIds = new int [_colNames.length];
       int idx = 0;
         for(int j = 0; j < _colNames.length; ++j)
@@ -827,7 +824,9 @@ public class GLMSolver {
     }
     Link _l;
     Family _f;
+    Key _key;
     Key _dataKey;
+    Key _modelKey;
     Sampling _s;
     public long _n;
     public double _dof;
