@@ -394,7 +394,7 @@ public class GLMSolver {
             continue OUTER;
           }
           // Founds NaNs or Infs.  Add some penalty and go again
-          _solver._lambda *= 10;
+          _solver._lambda = (_solver._lambda == 0)?1e-8:_solver._lambda*10;
           warns.add("Failed to converge.  Bumping lambda to "+_solver._lambda+" and solving again");
         }
         if( beta == null || foundNaNs ) {
