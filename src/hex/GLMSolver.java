@@ -367,7 +367,7 @@ public class GLMSolver {
       ArrayList<String> warns = new ArrayList();
       long t1 = System.currentTimeMillis();
       OUTER:
-      while(_iterations++ < _glmParams._maxIter ) {
+      while(++_iterations < _glmParams._maxIter ) {
         gtask = new GramMatrixTask(this);
         gtask._s = _s;
         gtask.invoke(_dataset);
@@ -390,6 +390,8 @@ public class GLMSolver {
             // steering us into SPD's.
             _solver._rho = (_solver._rho == 0)?1e-8:10*_solver._rho;
             _beta = new double[_beta.length];
+            _iterations = 0;
+            warns.clear(); // starting from scratch really (don't want to accumulate info about all rho-bumbpings)
             warns.add("Gram matrix is not symmetric positive definite.  Bumping rho to "+_solver._rho+" and recomputing Gram from scratch");
             continue OUTER;
           }
@@ -413,6 +415,8 @@ public class GLMSolver {
         if(diff < _glmParams._betaEps)
           break;
       }
+      if(_iterations == _glmParams._maxIter)
+        warns.add("Reached max # iterations!");
       _beta = (gtask != null)?gtask._beta:null;
       _isDone = true;
       if(!warns.isEmpty())
@@ -481,6 +485,7 @@ public class GLMSolver {
       res.addProperty("time", _time);
       res.addProperty("isDone", _isDone);
       res.addProperty("dataset", _dataset.toString());
+      if(_key != null)res.addProperty("model_key", _key.toString());
       if( _warnings != null ) {
         JsonArray warnings = new JsonArray();
         for( String w : _warnings )

@@ -21,10 +21,11 @@ public class GLMScore extends Request {
     protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,true);
     protected final H2OHexKey _dataKey = new H2OHexKey(KEY);
 
-    public static String link(Key k, String content) {
-      RString rs = new RString("<a href='GLMScore.query?%key_param=%$key'>%content</a>");
+    public static String link(Key k, double threshold, String content) {
+      RString rs = new RString("<a href='GLMScore.query?%key_param=%$key&thresholds=%threshold'>%content</a>");
       rs.replace("key_param", JSON_MODEL_KEY);
       rs.replace("key", k.toString());
+      rs.replace("threshold", threshold);
       rs.replace("content", content);
       return rs.toString();
     }

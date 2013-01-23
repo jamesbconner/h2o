@@ -73,7 +73,7 @@ public class GLM extends Request {
       sb.append("&weight=" + m._glmParams._caseWeight);
       sb.append("&max_iter=" + m._glmParams._maxIter);
       sb.append("&caseMode=" + URLEncoder.encode(m._glmParams._caseMode.toString(),"utf8"));
-      sb.append("&caseVal=" + m._glmParams._caseVal);
+      sb.append("&case=" + m._glmParams._caseVal);
       sb.append("'>" + content + "</a>");
       return sb.toString();
     } catch( UnsupportedEncodingException e ) {
@@ -220,7 +220,7 @@ public class GLM extends Request {
     }
 
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
-      sb.append("<div class='alert'>Actions: " + GLMScore.link(m.key(), "Validate on another dataset") + ", " + GLM.link(m._dataset,m, "Compute new model") + "</div>");
+      sb.append("<div class='alert'>Actions: " + GLMScore.link(m.key(),m._vals[0].bestThreshold(), "Validate on another dataset") + ", " + GLM.link(m._dataset,m, "Compute new model") + "</div>");
       RString R = new RString(
           "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
           "<h4>GLM Parameters</h4>" +

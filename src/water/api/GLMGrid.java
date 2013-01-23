@@ -87,8 +87,8 @@ public class GLMGrid extends Request {
     Key taskey = Key.make("Task"+UUID.randomUUID().toString(),(byte)0,Key.TASK,H2O.SELF);
 
     GLMParams glmp = new GLMParams();
-    glmp._betaEps = 1e-2;
-    glmp._maxIter = 5;
+    glmp._betaEps = _betaEps.value();
+    glmp._maxIter = _maxIter.value();
     glmp._caseMode = _caseMode.valid()?_caseMode.value():CaseMode.none;
     glmp._caseVal = _case.valid()?_case.value():Double.NaN;
     glmp._f = _family.value();

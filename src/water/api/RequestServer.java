@@ -48,6 +48,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new Console()),     "Console",       "Model");
 
     Request.addToNavbar(registerRequest(new RFView()),      "Random Forest", "Score");
+    Request.addToNavbar(registerRequest(new GLMScore()),    "GLM",           "Score");
 
 
     Request.addToNavbar(registerRequest(new Cloud()),    "Cloud Status", "Admin");
@@ -76,7 +77,6 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new WWWFileUpload());
     registerRequest(new PutVector());
     registerRequest(new GetVector());
-    registerRequest(new GLMScore());
 
     // testing hooks
     registerRequest(new TestPoll());
