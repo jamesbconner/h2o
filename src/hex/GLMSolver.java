@@ -368,38 +368,40 @@ public class GLMSolver {
       long t1 = System.currentTimeMillis();
       OUTER:
       while(++_iterations < _glmParams._maxIter ) {
+        // Compute the Gram Matrix
+        assert !hasNaNsOrInfs(_beta);
         gtask = new GramMatrixTask(this);
         gtask._s = _s;
         gtask.invoke(_dataset);
+        Matrix xx = gtask._gram.getXX();
+        Matrix xy = gtask._gram.getXY();
+
+        // Gram is broken?  Raise lambda penalty and try again
+        if( gtask._gram.hasNaNsOrInfs() ) {
+          _solver._lambda = (_solver._lambda == 0)?1e-8:_solver._lambda*10;
+          _beta = new double[_beta.length];
+          warns.add("Gram has Infs or NaNs.  Bumping lambda to "+_solver._lambda+" and solving again");
+          continue;
+        }
+
+        // Solve the equation with the given Gram matrix.
+        // Run up to twenty iterations of bumping _rho to solve SPD issues
         double [] beta = null;
-        boolean foundNaNs = false;
         for( int i = 0; i < 20; ++i) {
-          Matrix xx = gtask._gram.getXX();
-          Matrix xy = gtask._gram.getXY();
           try {
             beta = _solver.solve(xx,xy);
-            // Check for broken solution
-            foundNaNs = hasNaNsOrInfs(beta) || gtask._gram.hasNaNsOrInfs();
-            if( !foundNaNs )    // Clean?
-              break;
+            if( !hasNaNsOrInfs(beta) ) // Clean set of betas?
+              break;                   // Consider it a solution
+            beta = null;               // No solution
           } catch( RuntimeException e ) {
             if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
               throw e;
-            // If SPD matrix, add more rho and go again.  Need to reset the
-            // beta's and recompute the Gram, as the existing beta's are
-            // steering us into SPD's.
-            _solver._rho = (_solver._rho == 0)?1e-8:10*_solver._rho;
-            _beta = new double[_beta.length];
-            _iterations = 0;
-            warns.clear(); // starting from scratch really (don't want to accumulate info about all rho-bumbpings)
-            warns.add("Gram matrix is not symmetric positive definite.  Bumping rho to "+_solver._rho+" and recomputing Gram from scratch");
-            continue OUTER;
           }
-          // Founds NaNs or Infs.  Add some penalty and go again
-          _solver._lambda = (_solver._lambda == 0)?1e-8:_solver._lambda*10;
-          warns.add("Failed to converge.  Bumping lambda to "+_solver._lambda+" and solving again");
+          // If SPD matrix, add more rho and go again.
+          _solver._rho = (_solver._rho == 0)?1e-8:10*_solver._rho;
         }
-        if( beta == null || foundNaNs ) {
+
+        if( beta == null ) {
           warns.add("Unable to solve!");
           gtask = null;
           break;
