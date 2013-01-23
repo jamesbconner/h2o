@@ -12,6 +12,7 @@ import hex.GLMSolver.Link;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
@@ -33,7 +34,6 @@ public class GLM extends Request {
   public static final String JSON_GLM_X = "x";
   public static final String JSON_GLM_NEG_X = "neg_x";
   public static final String JSON_GLM_FAMILY = "family";
-  public static final String JSON_GLM_NORM = "norm";
   public static final String JSON_GLM_MAX_ITER = "max_iter";
   public static final String JSON_GLM_BETA_EPS = "beta_eps";
   public static final String JSON_GLM_WEIGHT = "weight";
@@ -41,6 +41,7 @@ public class GLM extends Request {
   public static final String JSON_GLM_CASE = "case";
   public static final String JSON_GLM_CASE_MODE = "caseMode";
   public static final String JSON_GLM_LINK = "link";
+  public static final String JSON_MODEL_KEY = "model_key";
 
   public static final String JSON_ROWS = "rows";
   public static final String JSON_TIME = "time";
@@ -50,6 +51,7 @@ public class GLM extends Request {
   protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
   protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
 
+  protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,false);
 
   public static String link(Key k, String content) {
     RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
@@ -57,6 +59,28 @@ public class GLM extends Request {
     rs.replace("key", k.toString());
     rs.replace("content", content);
     return rs.toString();
+  }
+
+  public static String link(Key k, GLMModel m, String content) {
+    try {
+      StringBuilder sb = new StringBuilder("<a href='GLM.query?");
+      sb.append(KEY + "=" + k.toString());
+      sb.append("&y=" + m.ycolName());
+      sb.append("&x=" + URLEncoder.encode(m.xcolNames(),"utf8"));
+      sb.append("&family=" + m._glmParams._f.toString());
+      sb.append("&link=" + m._glmParams._l.toString());
+      sb.append("&lambda=" + m._solver._lambda);
+      sb.append("&alpha=" + m._solver._alpha);
+      sb.append("&beta_eps=" + m._glmParams._betaEps);
+      sb.append("&weight=" + m._glmParams._caseWeight);
+      sb.append("&max_iter=" + m._glmParams._maxIter);
+      sb.append("&caseMode=" + URLEncoder.encode(m._glmParams._caseMode.toString(),"utf8"));
+      sb.append("&caseVal=" + m._glmParams._caseVal);
+      sb.append("'>" + content + "</a>");
+      return sb.toString();
+    } catch( UnsupportedEncodingException e ) {
+      throw new RuntimeException(e);
+    }
   }
 
   protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian,true);
@@ -88,6 +112,7 @@ public class GLM extends Request {
   }
 
   public GLM() {
+    _modelKey._hideInQuery = true;
   }
 
 
@@ -154,6 +179,12 @@ public class GLM extends Request {
       GLMParams glmParams = getGLMParams();
       LSMSolver lsm = LSMSolver.makeSolver(_lambda.value(),_alpha.value());
       GLMModel m = new GLMModel(ary, columns, lsm, glmParams, null);
+      if(_modelKey.specified()){
+        GLMModel previousModel = _modelKey.value();
+        // set the beta to previous result to have wamr start
+        if(previousModel.beta() != null && previousModel.beta().length == m.beta().length)
+          m.setBeta(previousModel.beta());
+      }
       m.compute();
       if( m.is_solved() ) {     // Solved at all?
         NumberSequence nseq = _thresholds.value();
@@ -191,9 +222,9 @@ public class GLM extends Request {
     }
 
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
+      sb.append("<div class='alert'>Actions: " + GLMScore.link(m.key(), "Validate on another dataset") + ", " + GLM.link(m._dataset,m, "Compute new model") + "</div>");
       RString R = new RString(
           "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
-          "<div class='alert'>" + GLMScore.link(m.key(), "Validate on another dataset") + "</div>" +
           "<h4>GLM Parameters</h4>" +
           " %GLMParams %LSMParams" +
           "<h4>Equation: </h4>" +
@@ -226,7 +257,6 @@ public class GLM extends Request {
         R.replace("coefficients",coefsHTML(coefs));
       }
       sb.append(R);
-
       // Validation / scoring
       validationHTML(m._vals,sb);
     }
@@ -301,7 +331,12 @@ public class GLM extends Request {
       return sb.toString();
     }
 
+
     static void validationHTML(GLMValidation val, StringBuilder sb){
+
+      RString valHeader = new RString("<div class='alert'>Validation of model <a href='/Inspect.html?"+KEY+"=%modelKey'>%modelKey</a> on dataset <a href='/Inspect.html?"+KEY+"=%dataKey'>%dataKey</a></div>");
+      RString xvalHeader = new RString("<div class='alert'>%valName of model <a href='/Inspect.html?"+KEY+"=%modelKey'>%modelKey</a></div>");
+
       RString R = new RString("<table class='table table-striped table-bordered table-condensed'>"
           + "<tr><th>Degrees of freedom:</th><td>%DegreesOfFreedom total (i.e. Null);  %ResidualDegreesOfFreedom Residual</td></tr>"
           + "<tr><th>Null Deviance</th><td>%nullDev</td></tr>"
@@ -313,6 +348,15 @@ public class GLM extends Request {
       RString R2 = new RString(
           "<tr><th>AUC</th><td>%AUC</td></tr>"
           + "<tr><th>Best Threshold</th><td>%threshold</td></tr>");
+      if(val instanceof GLMXValidation){
+        xvalHeader.replace("valName", val.name());
+        xvalHeader.replace("modelKey", val.modelKey());
+        sb.append(xvalHeader.toString());
+      } else {
+        valHeader.replace("modelKey", val.modelKey());
+        valHeader.replace("dataKey",val.dataKey());
+        sb.append(valHeader.toString());
+      }
 
       R.replace("DegreesOfFreedom",val._n-1);
       R.replace("ResidualDegreesOfFreedom",val._dof);
@@ -320,6 +364,7 @@ public class GLM extends Request {
       R.replace("resDev",val._deviance);
       R.replace("AIC", dformat(val.AIC()));
       R.replace("err",val.err());
+
 
       if(val._cm != null){
         R2.replace("AUC", dformat(val.AUC()));

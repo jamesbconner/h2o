@@ -18,7 +18,7 @@ public class GLMScore extends Request {
     public static final String JSON_COEFFICIENTS = "coefficients";
 
   //  protected final H2OKey _dataKey = new H2OHexKey(KEY);
-    protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY);
+    protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,true);
     protected final H2OHexKey _dataKey = new H2OHexKey(KEY);
 
 
@@ -39,7 +39,7 @@ public class GLMScore extends Request {
       final GLMValidation _val;
       GLMValidationBuilder( GLMValidation v) { _val=v; }
       public String build(Response response, JsonObject json, String contextName) {
-        StringBuilder sb = new StringBuilder();;
+        StringBuilder sb = new StringBuilder();
         GLMBuilder.validationHTML(_val,sb);
         return sb.toString();
       }
@@ -50,14 +50,10 @@ public class GLMScore extends Request {
         JsonObject res = new JsonObject();
         ValueArray ary = _dataKey.value();
         GLMModel m = _modelKey.value();
-        GLMValidation v = m.validateOn(ary, null, _thresholds.value().arr);
+        GLMValidation v = m.validateOn(ary, null, _thresholds.value()._arr);
         m.store();
         // Display HTML setup
         Response r = Response.done(res);
-        RString rs = new RString("<div class='alert'>Validation of model <a href='/Inspect.html?"+KEY+"=%modelKey'>%modelKey</a> on dataset <a href='/Inspect.html?"+KEY+"=%dataKey'>%dataKey</a></div>");
-        rs.replace("modelKey", m.key());
-        rs.replace("dataKey",_dataKey.originalValue());
-        r.addHeader(rs.toString());
         r.setBuilder("", new GLMValidationBuilder(v));
         return r;
       }catch(GLMException e){
