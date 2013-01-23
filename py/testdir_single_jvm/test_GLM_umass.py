@@ -40,7 +40,7 @@ class Basic(unittest.TestCase):
         for i in range(3):
             for (csvFilename, family, y, timeoutSecs, x) in csvFilenameList:
                 csvPathname = h2o.find_file("smalldata/logreg/umass_statdata/" + csvFilename)
-                kwargs = {'xval': 2, 'y': y, 'family': family, 'alpha': 1, 'lambda': 1, 'link': 'familyDefault'}
+                kwargs = {'xval': 2, 'y': y, 'family': family, 'alpha': 1, 'penalty': 1, 'link': 'familyDefault'}
                 if x is not None:
                     kwargs['x'] = x
 

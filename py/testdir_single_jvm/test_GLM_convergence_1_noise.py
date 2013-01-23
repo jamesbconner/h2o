@@ -99,7 +99,7 @@ class Basic(unittest.TestCase):
             y = colCount
             kwargs = {
                     'max_iter': 40, 
-                    'lambda': 1e-4,
+                    'penalty': 1e-4,
                     'alpha': 1.0,
                     'weight': 1.0,
                     'link': 'familyDefault',

@@ -30,7 +30,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
 paramDict = {
     'family': ['binomial'],
-    'lambda': [1.0E-5],
+    'penalty': [1.0E-5],
     'max_iter': [50],
     'weight': [1.0],
     'thresholds': [0.5],

@@ -10,7 +10,7 @@ def define_params():
         'family': ['binomial'],
         'xval': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 1e-8, 1e-4,1,10,1e4],
+        'penalty': [None, 1e-8, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.5,1],
         'beta_eps': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],

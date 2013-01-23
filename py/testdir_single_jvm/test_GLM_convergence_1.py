@@ -85,7 +85,7 @@ class Basic(unittest.TestCase):
             y = colCount
             kwargs = {
                     'max_iter': 10, 
-                    'lambda': 1,
+                    'penalty': 1,
                     # alpha=1 is slower?
                     'alpha': 0.5,
                     # weight for true (1). 

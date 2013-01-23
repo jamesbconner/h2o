@@ -45,7 +45,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
 
 paramDict = {
     'family': ['binomial'],
-    'lambda': [1.0E-5],
+    'penalty': [1.0E-5],
     'alpha': [1.0],
     'max_iter': [50],
     'weight': [1.0],

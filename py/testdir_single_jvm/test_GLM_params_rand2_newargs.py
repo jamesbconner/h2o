@@ -20,9 +20,9 @@ def define_params():
         'family': ['gaussian', 'binomial'],
         'xval': [2,3,4,9],
         'threshold': [0.1, 0.5, 0.7, 0.9],
-        # 'lambda': [None, 1e-8, 1e-4,1,10,1e4],
+        # 'penalty': [None, 1e-8, 1e-4,1,10,1e4],
         # Update: None is a problem with 'fail to converge'
-        'lambda': [0, 1e-8, 1e-4,1],
+        'penalty': [0, 1e-8, 1e-4,1],
         'alpha': [None, 0,0.2,0.8,1],
         'beta_eps': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
