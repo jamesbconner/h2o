@@ -1,5 +1,6 @@
 package water.api;
 
+import hex.GLMSolver.GLMModel;
 import hex.GLMSolver.*;
 import hex.rf.Model;
 
@@ -1514,24 +1515,13 @@ public class RequestArguments extends RequestStatics {
     }
   }
 
-
   public class H2OGLMModelKey extends TypeaheadInputText<GLMModel> {
 
     public final Key _defaultKey;
 
-    public H2OGLMModelKey(String name) {
-      super(TypeaheadGLMModelKeyRequest.class, name, true);
+    public H2OGLMModelKey(String name, boolean req) {
+      super(TypeaheadGLMModelKeyRequest.class, name, req);
       _defaultKey = null;
-    }
-
-    public H2OGLMModelKey(String name, String keyName) {
-      this(name, Key.make(keyName));
-    }
-
-
-    public H2OGLMModelKey(String name, Key key) {
-      super(TypeaheadGLMModelKeyRequest.class, name, false);
-      _defaultKey = key;
     }
 
     @Override protected GLMModel parse(String input) throws IllegalArgumentException {
@@ -1548,12 +1538,13 @@ public class RequestArguments extends RequestStatics {
       }
     }
 
-    @Override protected GLMModel defaultValue() {
-      throw new UnsupportedOperationException();
-    }
-
     @Override protected String queryDescription() {
       return "an existing H2O HEX key";
+    }
+
+    @Override
+    protected GLMModel defaultValue() {
+      return null;
     }
   }
 

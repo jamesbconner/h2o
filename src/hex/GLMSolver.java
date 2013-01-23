@@ -21,7 +21,6 @@ public class GLMSolver {
     public GLMException(String msg){super(msg);}
   }
 
-
   public enum CaseMode {
     none("n/a"),
     lt("<"),
@@ -63,7 +62,6 @@ public class GLMSolver {
         assert false;
         return false;
       }
-
     }
   }
   public static enum Link {
@@ -193,21 +191,15 @@ public class GLMSolver {
 
   public static final int FAMILY_ARGS_CASE = 0;
   public static final int FAMILY_ARGS_WEIGHT = 1;
-
   public static final double [] DEFAULT_THRESHOLDS = new double [] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
-
-
   int [] _colIds;
-
   LSMSolver _solver;
-
   Key _trainingDataset;
   Sampling _sampling;
   double [] _beta;
   int _iterations;
   boolean _finished;
   transient ValueArray _ary;
-
   int [] _categoricals;
   int [] _colOffsets;
   double [] _normSub;
@@ -235,19 +227,46 @@ public class GLMSolver {
     public GLMValidation [] _vals;
 
     public boolean is_solved() { return _beta != null; }
-
-
     public static final String KEY_PREFIX = "__GLMModel_";
 
+    public boolean isCompatible(ValueArray ary, int [] colIds){
+      if(colIds == null)colIds = new int [_colNames.length];
+      int idx = 0;
+        for(int j = 0; j < _colNames.length; ++j)
+          for(int i = 0; i < ary._cols.length; ++i)
+            if(ary._cols[i]._name.equals(_colNames[j]))
+              colIds[idx++] = i;
+      return idx == colIds.length;
+    }
 
+    public double [] beta() {
+      return _beta;
+    }
+    public void setBeta(double [] b){
+      _beta = b;
+    }
     public static final Key makeKey() {
       return Key.make(KEY_PREFIX + Key.make());
     }
+    public String ycolName(){
+      return _colNames[_colNames.length-1];
+    }
+
+    public String xcolNames(){
+      StringBuilder sb = new StringBuilder(_colNames[0]);
+      for(int i = 1; i < _colNames.length-1;++i)
+        sb.append("," + _colNames[i]);
+      return sb.toString();
+    }
 
     public final void store() {
-      if(_key == null)
+      if(_key == null){
         _key = makeKey();
+        for(GLMValidation v:_vals)
+          v._modelKey = _key;
+      }
       UKV.put(_key, this);
+
     }
 
     public final Key key(){
@@ -394,12 +413,7 @@ public class GLMSolver {
 
    public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
       int [] colIds = new int [_colNames.length];
-      int idx = 0;
-        for(int j = 0; j < _colNames.length; ++j)
-          for(int i = 0; i < ary._cols.length; ++i)
-            if(ary._cols[i]._name.equals(_colNames[j]))
-              colIds[idx++] = i;
-      if(idx != colIds.length)throw new GLMException("incompatible dataset");
+      if(!isCompatible(ary,colIds))throw new GLMException("incompatible dataset");;
       GLMValidationTask valTsk = new GLMValidationTask(ary._key,colIds);
       valTsk._colOffsets = _colOffsets;
       valTsk._categoricals = _categoricals;
@@ -420,6 +434,8 @@ public class GLMSolver {
       val._s = s;
       val._f = _glmParams._f;
       val._l = _glmParams._l;
+
+      val._modelKey = _key;
 
       if(_vals == null)
         _vals = new GLMValidation[]{val};
@@ -546,14 +562,12 @@ public class GLMSolver {
   }
 
   public static class GLMXValidation extends GLMValidation implements Comparable<GLMXValidation>{
-
-
     Key [] _modelKeys;
     boolean _compareByAUC = true;
 
-    public Key [] modelKeys(){
-      return _modelKeys;
-    }
+    @Override
+    public String name(){return _modelKeys.length + " fold cross-validation";}
+    public Key [] modelKeys(){return _modelKeys;}
 
     public Iterable<GLMModel> models(){
       final Key [] keys = _modelKeys;
@@ -563,10 +577,7 @@ public class GLMSolver {
         public Iterator<GLMModel> iterator() {
           return new Iterator<GLMSolver.GLMModel>() {
             @Override
-            public void remove() {
-              throw new UnsupportedOperationException();
-            }
-
+            public void remove() {throw new UnsupportedOperationException();}
             @Override
             public GLMModel next() {
               if(idx == keys.length) throw new NoSuchElementException();
@@ -583,6 +594,8 @@ public class GLMSolver {
 
     public GLMXValidation(GLMModel [] models, ErrMetric m, double [] thresholds) {
       _errMetric = m;
+      _modelKey = models[0]._key;
+      _dataKey = models[0]._dataset;
       if(models[0]._vals[0]._cm != null){
         int nthresholds = models[0]._vals[0]._cm.length;
         _cm = new ConfusionMatrix[nthresholds];
@@ -815,6 +828,9 @@ public class GLMSolver {
   }
 
   public static class GLMValidation extends Iced {
+
+    public static final String KEY_PREFIX = "__GLMValidation_";
+
     public static final BiMap<Class<? extends GLMValidation>, Integer> TYPE;
     static {
         TYPE = HashBiMap.create();
@@ -839,8 +855,6 @@ public class GLMSolver {
     public ConfusionMatrix [] _cm;
     int _tid;
     double [] _thresholds;
-    public GLMValidation(){}
-
 
     public GLMValidation(GLMValidationTask tsk){
       _n = tsk._n;
@@ -851,11 +865,17 @@ public class GLMSolver {
       _dof = _n-1-tsk._beta.length;
       _aic = 2*(tsk._beta.length+1) + _deviance;
       _thresholds = tsk._thresholds;
+      _dataKey = tsk._aryKey;
       if(_cm != null){
         computeBestThreshold(ErrMetric.SUMC);
         computeAUC();
       }
     }
+
+    public GLMValidation(){}
+    public Key dataKey() {return _dataKey;}
+    public Key modelKey() {return _modelKey;}
+    public String name(){return "Validation";}
 
     public ConfusionMatrix bestCM(){
       if(_cm == null)return null;
