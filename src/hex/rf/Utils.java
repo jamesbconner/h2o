@@ -72,7 +72,7 @@ public class Utils {
 
   public static void pln(String s) { System.out.println(s); }
 
-  public static <T> String sampleToString(int[] val, int max) {
+  public static String sampleToString(int[] val, int max) {
     if (val == null || val.length < max) return Arrays.toString(val);
 
     StringBuilder b = new StringBuilder();
