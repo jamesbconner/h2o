@@ -15,7 +15,6 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     def test_GLM_umass(self):
-        print "\nWARNING: I'm stripping trailing/leading spaces on datasets into syn_datasets to work around parser"
         # filename, Y, timeoutSecs
         # fix. the ones with comments may want to be a gaussian?
         csvFilenameList = [
