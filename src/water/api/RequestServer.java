@@ -37,6 +37,7 @@ public class RequestServer extends NanoHTTPD {
     Request.addToNavbar(registerRequest(new ImportFiles()), "Import Files", "Data");
     Request.addToNavbar(registerRequest(new ImportUrl()),   "Import URL",   "Data");
     Request.addToNavbar(registerRequest(new ImportS3()),    "Import S3",    "Data");
+    Request.addToNavbar(registerRequest(new ExportS3()),    "Export S3",    "Data");
     Request.addToNavbar(registerRequest(new PutFile()),     "Upload",       "Data");
     Request.addToNavbar(registerRequest(new Get()),         "Download",     "Data");
 
@@ -64,6 +65,7 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new Exec());
     registerRequest(new GLMGridProgress());
     registerRequest(new KMeansProgress());
+    registerRequest(new ExportS3Progress());
     registerRequest(new ParseProgress());
     registerRequest(new RFTreeView());
     registerRequest(new TypeaheadKeysRequest());

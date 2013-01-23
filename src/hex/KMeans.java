@@ -11,6 +11,7 @@ import water.*;
  */
 public abstract class KMeans {
   private static final boolean DEBUG = false;
+  public static Long           RAND_SEED;
 
   public static class Res extends Iced {
     public double[][] _clusters;
@@ -45,7 +46,7 @@ public abstract class KMeans {
       sampler._sqr = sqr._sqr;
       sampler._probability = k * 3; // Over-sampling
       sampler.invoke(va._key);
-      clusters = Sampler.merge(clusters, sampler._newClusters);
+      clusters = DRemoteTask.merge(clusters, sampler._newClusters);
 
       res._iteration++;
       UKV.put(dest, res);
@@ -87,7 +88,7 @@ public abstract class KMeans {
     int[]      _cols;
     double[][] _clusters;
 
-    // Result
+    // Reduced
     double     _sqr;
 
     @Override
@@ -126,7 +127,7 @@ public abstract class KMeans {
     double     _sqr;
     double     _probability;
 
-    // Result
+    // Reduced
     double[][] _newClusters;
 
     @Override
@@ -140,7 +141,7 @@ public abstract class KMeans {
       int rows = bits.remaining() / va._rowsize;
       double[] values = new double[_cols.length];
       ArrayList<double[]> list = new ArrayList<double[]>();
-      Random rand = new Random();
+      Random rand = RAND_SEED == null ? new Random() : new Random(RAND_SEED);
 
       for( int row = 0; row < rows; row++ ) {
         for( int column = 0; column < _cols.length; column++ )
@@ -172,13 +173,6 @@ public abstract class KMeans {
       else
         _newClusters = task._newClusters;
     }
-
-    static double[][] merge(double[][] a, double[][] b) {
-      double[][] res = new double[a.length + b.length][];
-      System.arraycopy(a, 0, res, 0, a.length);
-      System.arraycopy(b, 0, res, a.length, b.length);
-      return res;
-    }
   }
 
   public static class Lloyds extends MRTask {
@@ -186,7 +180,7 @@ public abstract class KMeans {
     int[]      _cols;
     double[][] _clusters;
 
-    // Result - sums and counts for each cluster
+    // Reduced - sums and counts for each cluster
     double[][] _sums;
     int[]      _counts;
 
@@ -285,7 +279,7 @@ public abstract class KMeans {
     double[][] res = new double[k][];
     res[0] = points[0];
     int count = 1;
-    Random rand = new Random();
+    Random rand = RAND_SEED == null ? new Random() : new Random(RAND_SEED);
 
     while( count < res.length ) {
       double sum = 0;

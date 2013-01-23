@@ -20,6 +20,7 @@ public class Constants {
   public static final String CLASS                 = "class";
   public static final String CLOUD_NAME            = "cloud_name";
   public static final String CLOUD_SIZE            = "cloud_size";
+  public static final String CLUSTERS              = "clusters";
   public static final String COLS                  = "cols";
   public static final String CONSENSUS             = "consensus";
   public static final String CONTENTS              = "contents";
@@ -49,6 +50,7 @@ public class Constants {
   public static final String FREE_DISK             = "free_disk" + Suffixes.BYTES;
   public static final String FREE_MEM              = "free_mem" + Suffixes.BYTES;
   public static final String GINI                  = "gini";
+  public static final String HEIGHT                = "height";
   public static final String HELP                  = "help";
   public static final String IGNORE                = "ignore";
   public static final String ITEMS                 = "items";
@@ -78,6 +80,7 @@ public class Constants {
   public static final String NUM_KEYS              = "num_keys";
   public static final String NUM_ROWS              = "num_rows";
   public static final String NUM_TREES             = "ntree";
+  public static final String OBJECT                = "object";
   public static final String OFFSET                = "offset";
   public static final String OOBEE                 = "oobee";
   public static final String PATH                  = "path";
@@ -146,6 +149,7 @@ public class Constants {
   public static final String VIEW                  = "view";
   public static final String WARNINGS              = "warnings";
   public static final String WEIGHTS               = "class_weights";
+  public static final String WIDTH                 = "width";
 
   public static final String WEB_ROOT_OBJECT       = "";
 }
