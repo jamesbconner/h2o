@@ -878,7 +878,7 @@ public class GLMSolver {
     }
 
     public double bestThreshold() {
-      return _thresholds[_tid];
+      return (_thresholds != null)?_thresholds[_tid]:0;
     }
     public void computeBestThreshold(ErrMetric errM){
       double e = errM.computeErr(_cm[0]);

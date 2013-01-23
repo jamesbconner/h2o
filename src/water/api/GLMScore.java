@@ -1,5 +1,6 @@
 package water.api;
 
+import hex.GLMSolver.Family;
 import hex.GLMSolver.GLMException;
 import hex.GLMSolver.GLMModel;
 import hex.GLMSolver.GLMValidation;
@@ -20,6 +21,20 @@ public class GLMScore extends Request {
     public static final String JSON_MODEL_KEY = "modelKey";
     protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,true);
     protected final H2OHexKey _dataKey = new H2OHexKey(KEY);
+    protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
+
+    @Override
+    protected void queryArgumentValueSet(water.api.RequestArguments.Argument arg, java.util.Properties inputArgs) {
+      if(arg == _modelKey && _modelKey.specified()){
+        GLMModel m = _modelKey.value();
+        if(m._glmParams._f == Family.binomial){
+          _thresholds._hideInQuery = false;
+        }else{
+          _thresholds.disable("only for binomial");
+          _thresholds._hideInQuery =true;
+        }
+      }
+    };
 
     public static String link(Key k, double threshold, String content) {
       RString rs = new RString("<a href='GLMScore.query?%key_param=%$key&thresholds=%threshold'>%content</a>");
@@ -30,7 +45,7 @@ public class GLMScore extends Request {
       return rs.toString();
     }
 
-    protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
+
 
     public GLMScore() {}
 
