@@ -402,7 +402,7 @@ public class GLMSolver {
           gtask = null;
           break;
         }
-        
+
         // Compute max change in coef's from last iteration to this one,
         // and exit if nothing has changed more than _betaEps
         double diff = 0.0;
@@ -425,7 +425,7 @@ public class GLMSolver {
           return true;
       return false;
     }
-    
+
 
     public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
       int [] colIds = new int [_colNames.length];
@@ -463,7 +463,7 @@ public class GLMSolver {
       return val;
     }
 
-    public GLMXValidation xvalidate(int folds, double [] thresholds) {
+    public GLMValidation xvalidate(int folds, double [] thresholds) {
       GLMModel [] models = new GLMModel[folds];
       for(int i = 0; i < folds; ++i){
         models[i] = new GLMModel(this);
@@ -471,7 +471,7 @@ public class GLMSolver {
         models[i].compute();
         models[i].validateOn(ValueArray.value(_dataset), new Sampling(i, folds, true),thresholds);
       }
-      GLMXValidation res = new GLMXValidation(models, ErrMetric.SUMC,thresholds);
+      GLMValidation res = new GLMValidation(models, ErrMetric.SUMC,thresholds);
       _vals = new GLMValidation[]{res};
       return res;
     }
@@ -577,107 +577,6 @@ public class GLMSolver {
 
   }
 
-  public static class GLMXValidation extends GLMValidation implements Comparable<GLMXValidation>{
-    Key [] _modelKeys;
-    boolean _compareByAUC = true;
-
-    @Override
-    public String name(){return _modelKeys.length + " fold cross-validation";}
-    public Key [] modelKeys(){return _modelKeys;}
-
-    public Iterable<GLMModel> models(){
-      final Key [] keys = _modelKeys;
-      return new Iterable<GLMModel> (){
-        int idx;
-        @Override
-        public Iterator<GLMModel> iterator() {
-          return new Iterator<GLMSolver.GLMModel>() {
-            @Override
-            public void remove() {throw new UnsupportedOperationException();}
-            @Override
-            public GLMModel next() {
-              if(idx == keys.length) throw new NoSuchElementException();
-              return new GLMModel().read(new AutoBuffer(DKV.get(keys[idx++]).get()));
-            }
-              @Override
-            public boolean hasNext() {
-              return idx < keys.length;
-            }
-          };
-        }
-      };
-    }
-
-    public GLMXValidation(GLMModel [] models, ErrMetric m, double [] thresholds) {
-      _errMetric = m;
-      _modelKey = models[0]._key;
-      _dataKey = models[0]._dataset;
-      if(models[0]._vals[0]._cm != null){
-        int nthresholds = models[0]._vals[0]._cm.length;
-        _cm = new ConfusionMatrix[nthresholds];
-        for(int t = 0; t < nthresholds; ++t)
-          _cm[t] = models[0]._vals[0]._cm[t];
-        _n += models[0]._vals[0]._n;
-        _deviance = models[0]._vals[0]._deviance;
-        _nullDeviance = models[0]._vals[0]._nullDeviance;
-        for(int i = 1; i < models.length; ++i){
-          _n += models[i]._vals[0]._n;
-          _deviance += models[0]._vals[0]._deviance;
-          _nullDeviance += models[0]._vals[0]._nullDeviance;
-          for(int t = 0; t < nthresholds; ++t)
-            _cm[t].add(models[i]._vals[0]._cm[t]);
-        }
-        _thresholds = thresholds;
-        computeBestThreshold(m);
-        computeAUC();
-      } else {
-        for(GLMModel xm:models){
-          _n += xm._vals[0]._n;
-          _deviance += xm._vals[0]._deviance;
-          _nullDeviance += xm._vals[0]._nullDeviance;
-          _err += xm._vals[0]._err;
-        }
-      }
-      _aic = 2*(models[0]._beta.length+1) + _deviance;
-      _dof = _n - models[0]._beta.length - 1;
-      _modelKeys = new Key[models.length];
-      int i = 0;
-      for(GLMModel xm:models){
-        if(xm.key() == null)xm.store();
-        _modelKeys[i++] = xm.key();
-      }
-    }
-
-
-
-    public double errM(){
-      return _errMetric.computeErr(_cm[_tid]);
-    }
-
-    public ConfusionMatrix cm() {
-      return _cm[_tid];
-    }
-    public JsonObject toJson(){
-      JsonObject res = super.toJson();
-
-      return res;
-    }
-
-    @Override
-    public int compareTo(GLMXValidation o) {
-      double x,y;
-      if(_compareByAUC){
-        x = -AUC();
-        y = -o.AUC();
-      } else {
-        x = _errMetric.computeErr(_cm[_tid]);
-        y = _errMetric.computeErr(o._cm[o._tid]);
-      }
-      if(x < y)return -1;
-      if(x > y) return 1;
-      return 0;
-    }
-  }
 
   public static class GramMatrixTask extends RowVecTask {
     Family _family;
@@ -844,16 +743,10 @@ public class GLMSolver {
   }
 
   public static class GLMValidation extends Iced {
-
+    Key [] _modelKeys;
     public static final String KEY_PREFIX = "__GLMValidation_";
 
-    public static final BiMap<Class<? extends GLMValidation>, Integer> TYPE;
-    static {
-        TYPE = HashBiMap.create();
-        TYPE.put(null, -1);
-        TYPE.put(GLMValidation.class, 0);
-        TYPE.put(GLMXValidation.class, 1);
-    }
+
     Link _l;
     Family _f;
     Key _key;
@@ -888,10 +781,82 @@ public class GLMSolver {
       }
     }
 
+
+    public GLMValidation(GLMModel [] models, ErrMetric m, double [] thresholds) {
+      _errMetric = m;
+      _modelKey = models[0]._key;
+      _dataKey = models[0]._dataset;
+      if(models[0]._vals[0]._cm != null){
+        int nthresholds = models[0]._vals[0]._cm.length;
+        _cm = new ConfusionMatrix[nthresholds];
+        for(int t = 0; t < nthresholds; ++t)
+          _cm[t] = models[0]._vals[0]._cm[t];
+        _n += models[0]._vals[0]._n;
+        _deviance = models[0]._vals[0]._deviance;
+        _nullDeviance = models[0]._vals[0]._nullDeviance;
+        for(int i = 1; i < models.length; ++i){
+          _n += models[i]._vals[0]._n;
+          _deviance += models[0]._vals[0]._deviance;
+          _nullDeviance += models[0]._vals[0]._nullDeviance;
+          for(int t = 0; t < nthresholds; ++t)
+            _cm[t].add(models[i]._vals[0]._cm[t]);
+        }
+        _thresholds = thresholds;
+        computeBestThreshold(m);
+        computeAUC();
+      } else {
+        for(GLMModel xm:models){
+          _n += xm._vals[0]._n;
+          _deviance += xm._vals[0]._deviance;
+          _nullDeviance += xm._vals[0]._nullDeviance;
+          _err += xm._vals[0]._err;
+        }
+      }
+      _aic = 2*(models[0]._beta.length+1) + _deviance;
+      _dof = _n - models[0]._beta.length - 1;
+      _modelKeys = new Key[models.length];
+      int i = 0;
+      for(GLMModel xm:models){
+        if(xm.key() == null)xm.store();
+        _modelKeys[i++] = xm.key();
+      }
+    }
+
     public GLMValidation(){}
     public Key dataKey() {return _dataKey;}
     public Key modelKey() {return _modelKey;}
-    public String name(){return "Validation";}
+
+
+
+    public Iterable<GLMModel> models(){
+      final Key [] keys = _modelKeys;
+      final int N = (keys != null)?keys.length:0;
+      return new Iterable<GLMModel> (){
+        int idx;
+        @Override
+        public Iterator<GLMModel> iterator() {
+          return new Iterator<GLMSolver.GLMModel>() {
+            @Override
+            public void remove() {throw new UnsupportedOperationException();}
+            @Override
+            public GLMModel next() {
+              if(idx == keys.length) throw new NoSuchElementException();
+              return new GLMModel().read(new AutoBuffer(DKV.get(keys[idx++]).get()));
+            }
+              @Override
+            public boolean hasNext() {
+              return idx < keys.length;
+            }
+          };
+        }
+      };
+    }
+
+    public int fold(){
+      return (_modelKeys == null)?1:_modelKeys.length;
+    }
+
+
 
     public ConfusionMatrix bestCM(){
       if(_cm == null)return null;
@@ -996,6 +961,12 @@ public class GLMSolver {
         res.add("cm", _cm[_tid].toJson());
       } else
         res.addProperty("err", _err);
+      if(_modelKeys != null){
+        JsonArray arr = new JsonArray();
+        for(Key k:_modelKeys)
+          arr.add(new JsonPrimitive(k.toString()));
+        res.add("xval_models", arr);
+      }
       return res;
     }
 

@@ -7,12 +7,10 @@ import hex.GLMSolver.GLMException;
 import hex.GLMSolver.GLMModel;
 import hex.GLMSolver.GLMParams;
 import hex.GLMSolver.GLMValidation;
-import hex.GLMSolver.GLMXValidation;
 import hex.GLMSolver.Link;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.Map.Entry;
@@ -348,8 +346,8 @@ public class GLM extends Request {
       RString R2 = new RString(
           "<tr><th>AUC</th><td>%AUC</td></tr>"
           + "<tr><th>Best Threshold</th><td>%threshold</td></tr>");
-      if(val instanceof GLMXValidation){
-        xvalHeader.replace("valName", val.name());
+      if(val.fold() > 1){
+        xvalHeader.replace("valName", val.fold() + " fold cross validation");
         xvalHeader.replace("modelKey", val.modelKey());
         sb.append(xvalHeader.toString());
       } else {
@@ -373,18 +371,17 @@ public class GLM extends Request {
       }
       sb.append(R);
       confusionHTML(val.bestCM(),sb);
-      if(val instanceof GLMXValidation){
-        GLMXValidation xval = (GLMXValidation)val;
+      if(val.fold() > 1){
         int nclasses = 2;
         sb.append("<table class='table table-bordered table-condensed'>");
-        if(xval._cm != null){
+        if(val._cm != null){
           sb.append("<tr><th>Model</th><th>Best Threshold</th><th>AUC</th>");
           for(int c = 0; c < nclasses; ++c)
             sb.append("<th>Err(" + c + ")</th>");
           sb.append("</tr>");
           // Display all completed models
           int i=0;
-          for(GLMModel xm:xval.models()){
+          for(GLMModel xm:val.models()){
             String mname = "Model " + i++;
             sb.append("<tr>");
             try {
@@ -403,7 +400,7 @@ public class GLM extends Request {
           sb.append("</tr>");
           // Display all completed models
           int i=0;
-          for(GLMModel xm:xval.models()){
+          for(GLMModel xm:val.models()){
             String mname = "Model " + i++;
             sb.append("<tr>");
             try {

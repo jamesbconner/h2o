@@ -7,20 +7,19 @@ import water.Key;
 import water.ValueArray;
 import water.api.GLM.GLMBuilder;
 import water.web.RString;
-
 import com.google.gson.JsonObject;
 
+/**
+ * Simple web page to trigger glm validation on another dataset.
+ * The dataset must contain the same columns (NOTE:identified by names) or error is returned.
+ *
+ * @author tomasnykodym
+ *
+ */
 public class GLMScore extends Request {
     public static final String JSON_MODEL_KEY = "modelKey";
-
-    public static final String JSON_ROWS = "rows";
-    public static final String JSON_TIME = "time";
-    public static final String JSON_COEFFICIENTS = "coefficients";
-
-  //  protected final H2OKey _dataKey = new H2OHexKey(KEY);
     protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,true);
     protected final H2OHexKey _dataKey = new H2OHexKey(KEY);
-
 
     public static String link(Key k, String content) {
       RString rs = new RString("<a href='GLMScore.query?%key_param=%$key'>%content</a>");
@@ -32,8 +31,7 @@ public class GLMScore extends Request {
 
     protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
 
-    public GLMScore() {
-    }
+    public GLMScore() {}
 
     static class GLMValidationBuilder extends ObjectBuilder {
       final GLMValidation _val;
