@@ -15,7 +15,7 @@ def define_params():
         # 'x_value': [2,3,4,9],
         'x_value': [0],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'penalty': [None, 1e-4,1,10,1e4],
+        'penalty': [None, 1e-4],
         # 0 is L2. 1 is L1. Inbetween is Elastic
         'alpha': [None, 0,0.5, 1],
         # coefficient precision
@@ -25,7 +25,7 @@ def define_params():
         # 'link': [None, 'logit','identity', 'log', 'inverse'],
         # 'link': [None, 'logit','identity'],
         # This is the new name? fine, we don't care for old or old testing (maxIter?)
-        'max_iter': [None, 10],
+        'max_iter': [3,7,11],
         'weight': [None, 1, 2, 4],
         }
     return paramDict
@@ -61,7 +61,7 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some x_value (which can be overwritten)
             # with a different choice. we need the x_value to get the error details
             # in the json(below)
-            kwargs = {'y': 54, 'penalty': 1e4, 'case': 1}
+            kwargs = {'y': 54, 'case': 1, 'max_iter': 6}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
