@@ -12,14 +12,14 @@ def define_params():
         'x': [0,1,15,33],
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'family': ['gamma'],
-        # 'xval': [2,3,4,9],
-        'xval': [0],
+        # 'x_value': [2,3,4,9],
+        'x_value': [0],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 1e-4,1,10,1e4],
+        'penalty': [None, 1e-4,1,10,1e4],
         # 0 is L2. 1 is L1. Inbetween is Elastic
         'alpha': [None, 0,0.5, 1],
         # coefficient precision
-        'beta_eps': [None, 0.0001],
+        'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # inverse and log causing problems
         # 'link': [None, 'logit','identity', 'log', 'inverse'],
@@ -58,10 +58,10 @@ class Basic(unittest.TestCase):
             # default
             colX = 0
             # form random selections of GLM parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details
+            # always need Y=54. and always need some x_value (which can be overwritten)
+            # with a different choice. we need the x_value to get the error details
             # in the json(below)
-            kwargs = {'y': 54, 'lambda': 1e4, 'case': 1}
+            kwargs = {'y': 54, 'penalty': 1e4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

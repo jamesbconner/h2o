@@ -31,19 +31,19 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     print "\nGLMModel/validations/err:", validations['err']
 
     if (not family in kwargs) or kwargs['family']=='poisson' or kwargs['family']=="gaussian":
-        # FIX! xval not in gaussian or poisson?
+        # FIX! x_value not in gaussian or poisson?
         pass
     else:
-        if ('xval' in kwargs):
+        if ('x_value' in kwargs):
             # no cm in poisson?
             cmList = validations['cm']
 
-            xvalList = glm['xval']
-            xval = xvalList[0]
+            x_valueList = glm['x_value']
+            x_value = x_valueList[0]
             # FIX! why is this returned as a list? no reason?
-            validationsList = xval['validations']
+            validationsList = x_value['validations']
             validations = validationsList[0]
-            print "\nxval/../validations/err:", validations['err']
+            print "\nx_value/../validations/err:", validations['err']
 
     # it's a dictionary!
     # get a copy, so we don't destroy the original when we pop the intercept
@@ -189,7 +189,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
 #       "error_0": 1.0, 
 #       "error_1": 0.0, 
 #       "key": "__GLMModel_8b0fc26c-3a9c-4c4b-8cf6-240cc5b60508", 
-#       "lambda": 0.009999999999999998, 
+#       "penalty": 0.009999999999999998, 
 #     }, 
     model0 = glmGridResult['models'][0]
     alpha = model0['alpha']
@@ -199,7 +199,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
     key = model0['key']
     print "best GLM model key:", key
 
-    glm_lambda = model0['lambda']
+    glm_penalty = model0['penalty']
 
     # now indirect to the GLM result/model that's first in the list (best)
     inspectGLM = h2o_cmd.runInspect(None, key)

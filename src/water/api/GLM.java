@@ -21,35 +21,29 @@ import water.web.RString;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-/**
- *
- * @author peta
- */
 public class GLM extends Request {
 
-  public static final String JSON_PREVIOUS_MODEL_KEY = "previous_model_key";
-  public static final String JSON_GLM_Y = "y";
-  public static final String JSON_GLM_X = "x";
-  public static final String JSON_GLM_NEG_X = "neg_x";
-  public static final String JSON_GLM_FAMILY = "family";
-  public static final String JSON_GLM_MAX_ITER = "max_iter";
-  public static final String JSON_GLM_BETA_EPS = "beta_eps";
-  public static final String JSON_GLM_WEIGHT = "weight";
-  public static final String JSON_GLM_XVAL = "xval";
-  public static final String JSON_GLM_CASE = "case";
-  public static final String JSON_GLM_CASE_MODE = "caseMode";
-  public static final String JSON_GLM_LINK = "link";
-  public static final String JSON_MODEL_KEY = "model_key";
-
-  public static final String JSON_ROWS = "rows";
-  public static final String JSON_TIME = "time";
-  public static final String JSON_COEFFICIENTS = "coefficients";
-
   protected final H2OHexKey _key = new H2OHexKey(KEY);
-  protected final H2OHexKeyCol _y = new H2OHexKeyCol(JSON_GLM_Y, _key);
-  protected final HexColumnSelect _x = new HexNonConstantColumnSelect(JSON_GLM_X, _key, _y);
+  protected final H2OHexKeyCol _y = new H2OHexKeyCol(Y, _key);
+  protected final HexColumnSelect _x = new HexNonConstantColumnSelect(X, _key, _y);
+  protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(MODEL_KEY,false);
+  protected final EnumArgument<Family> _family = new EnumArgument(FAMILY,Family.gaussian,true);
+  protected final LinkArg _link = new LinkArg(_family,LINK);
+  protected final Real _lambda = new Real(LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
+  protected final Real _alpha = new Real(ALPHA, LSMSolver.DEFAULT_ALPHA, 0, 1);
+  protected final Real _betaEps = new Real(BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
+  protected final Int _maxIter = new Int(MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
+  protected final Real _caseWeight = new Real(WEIGHT,1.0);
+  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y,_family, CASE_MODE,CaseMode.none);
+  protected final CaseSelect _case = new CaseSelect(_key,_y,_caseMode,CASE);
+  protected final RSeq _thresholds = new RSeq(DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
+  protected final Int _xval = new Int(XVAL, 10, 0, 1000000);
 
-  protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,false);
+  public GLM() {
+    _modelKey._hideInQuery = true;
+    _requestHelp = "Compute a generalized linear model.";
+  }
+
 
   public static String link(Key k, String content) {
     RString rs = new RString("<a href='GLM.query?%key_param=%$key'>%content</a>");
@@ -81,20 +75,6 @@ public class GLM extends Request {
     }
   }
 
-  protected final EnumArgument<Family> _family = new EnumArgument(JSON_GLM_FAMILY,Family.gaussian,true);
-  protected final LinkArg _link = new LinkArg(_family,JSON_GLM_LINK);
-  protected final Real _lambda = new Real(Constants.LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
-  protected final Real _alpha = new Real(Constants.ALPHA, LSMSolver.DEFAULT_ALPHA, 0, 1);
-  protected final Real _betaEps = new Real(JSON_GLM_BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
-  protected final Int _maxIter = new Int(JSON_GLM_MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
-  protected final Real _caseWeight = new Real(JSON_GLM_WEIGHT,1.0);
-  protected final CaseModeSelect _caseMode = new CaseModeSelect(_key,_y,_family, JSON_GLM_CASE_MODE,CaseMode.none);
-  protected final CaseSelect _case = new CaseSelect(_key,_y,_caseMode,JSON_GLM_CASE);
-  protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
-  protected final Int _xval = new Int(JSON_GLM_XVAL, 10, 0, 1000000);
-
-
-
   @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
     if(arg == _caseMode){
       if(_caseMode.value() == CaseMode.none)
@@ -108,11 +88,6 @@ public class GLM extends Request {
       }
     }
   }
-
-  public GLM() {
-    _modelKey._hideInQuery = true;
-  }
-
 
   /** Returns an array of columns to use for GLM, the last of them being the
    * result column y.

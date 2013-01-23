@@ -11,12 +11,12 @@ def define_params():
         # 'x': ['0:3','14:17','5:10',0,1,15,33],
         'x': [0,1,15,33],
         'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
-        'xval': [2,3,4,9],
+        'x_value': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 0,1e-4,1,10,1e4],
+        'penalty': [None, 0,1e-4,1,10,1e4],
         'alpha': [None, 0,0.8,1],
         # new?
-        'beta_eps': [None, 0.0001],
+        'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # inverse and log causing problems
         # 'link': [None, 'logit','identity', 'log', 'inverse'],
@@ -53,8 +53,8 @@ class Basic(unittest.TestCase):
             # default
             colX = 0
             # form random selections of GLM parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details
+            # always need Y=54. and always need some x_value (which can be overwritten)
+            # with a different choice. we need the x_value to get the error details
             # in the json(below)
             kwargs = {'y': 54, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))

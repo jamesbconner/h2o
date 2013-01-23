@@ -22,15 +22,15 @@ argcaseList = [
         'y': 107,
         'case': 1,
         'family': 'gaussian',
-        'lambda': 1.0E-5,
+        'penalty': 1.0E-5,
         'max_iter': 50,
         'weight': 1.0,
         'thresholds': 0.5,
         'link': 'familyDefault',
-        'xval': 0,
+        'x_value': 0,
         'expand_cat': 0,
         'alpha': 1,
-        'beta_eps': 1.0E-4 },
+        'beta_epsilon': 1.0E-4 },
     ]
 
 class Basic(unittest.TestCase):

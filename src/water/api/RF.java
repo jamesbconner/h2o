@@ -12,7 +12,7 @@ import com.google.gson.JsonObject;
 public class RF extends Request {
 
   protected final H2OHexKey _dataKey = new H2OHexKey(DATA_KEY);
-  protected final HexKeyClassCol _classCol = new HexKeyClassCol(CLASS,_dataKey);
+  protected final HexKeyClassCol _classCol = new HexKeyClassCol(CLASS, _dataKey);
   protected final Int _numTrees = new Int(NUM_TREES,50,0,Integer.MAX_VALUE);
   protected final Bool _gini = new Bool(GINI,false,"use gini statistic (otherwise entropy is used)");
   protected final H2OCategoryWeights _weights = new H2OCategoryWeights(WEIGHTS, _dataKey, _classCol, 1);
@@ -39,6 +39,9 @@ public class RF extends Request {
 
   public RF() {
     _stratify.setRefreshOnChange();
+    _requestHelp = "Build a model using Random Forest.";
+    _classCol._requestHelp = "The output classification (also known as " +
+    		"'response variable') that is being learned.";
   }
 
   @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
