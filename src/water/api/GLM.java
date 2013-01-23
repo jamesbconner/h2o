@@ -220,7 +220,7 @@ public class GLM extends Request {
     }
 
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
-      sb.append("<div class='alert'>Actions: " + GLMScore.link(m.key(),m._vals[0].bestThreshold(), "Validate on another dataset") + ", " + GLM.link(m._dataset,m, "Compute new model") + "</div>");
+      sb.append("<div class='alert'>Actions: " + ((m.is_solved())?(GLMScore.link(m.key(),m._vals[0].bestThreshold(), "Validate on another dataset") + ", "):"") + GLM.link(m._dataset,m, "Compute new model") + "</div>");
       RString R = new RString(
           "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
           "<h4>GLM Parameters</h4>" +
@@ -256,7 +256,8 @@ public class GLM extends Request {
       }
       sb.append(R);
       // Validation / scoring
-      validationHTML(m._vals,sb);
+      if(m._vals != null)
+        validationHTML(m._vals,sb);
     }
 
     private static final String ALPHA   = "&alpha;";
@@ -408,7 +409,7 @@ public class GLM extends Request {
             } catch( UnsupportedEncodingException e1 ) {
               throw new Error(e1);
             }
-            sb.append("<td>" + xm._vals[0]._err + "</td>");
+            sb.append("<td>" + ((xm._vals != null)?xm._vals[0]._err:Double.NaN) + "</td>");
             sb.append("</tr>");
           }
         }
@@ -420,7 +421,7 @@ public class GLM extends Request {
       if( vals == null || vals.length == 0 ) return;
       sb.append("<h4>Validations</h4>");
       for( GLMValidation val : vals )
-        validationHTML(val, sb);
+        if(val != null)validationHTML(val, sb);
     }
 
     private static void cmRow( StringBuilder sb, String hd, double c0, double c1, double cerr ) {

@@ -262,7 +262,7 @@ public class GLMSolver {
     public final void store() {
       if(_key == null){
         _key = makeKey();
-        for(GLMValidation v:_vals)
+        if(_vals != null)for(GLMValidation v:_vals)
           v._modelKey = _key;
       }
       UKV.put(_key, this);
@@ -473,10 +473,15 @@ public class GLMSolver {
         models[i] = new GLMModel(this);
         models[i]._s = new Sampling(i,folds,false);
         models[i].compute();
-        models[i].validateOn(ValueArray.value(_dataset), new Sampling(i, folds, true),thresholds);
+        if(models[i].is_solved())
+          models[i].validateOn(ValueArray.value(_dataset), new Sampling(i, folds, true),thresholds);
       }
       GLMValidation res = new GLMValidation(models, ErrMetric.SUMC,thresholds);
-      _vals = new GLMValidation[]{res};
+      if(_vals == null)_vals = new GLMValidation[]{res};
+      else {
+        _vals = Arrays.copyOf(_vals, _vals.length+1);
+        _vals[_vals.length-1] = res;
+      }
       return res;
     }
 
@@ -791,6 +796,20 @@ public class GLMSolver {
       _errMetric = m;
       _modelKey = models[0]._key;
       _dataKey = models[0]._dataset;
+      _modelKeys = new Key[models.length];
+      int i = 0;
+      boolean solved = true;
+      for(GLMModel xm:models){
+        if(xm.key() == null)xm.store();
+        _modelKeys[i++] = xm.key();
+        if(!xm.is_solved())solved = false;
+      }
+      if(!solved){
+        _aic = Double.NaN;
+        _dof = Double.NaN;
+        _auc = Double.NaN;
+        return;
+      }
       if(models[0]._vals[0]._cm != null){
         int nthresholds = models[0]._vals[0]._cm.length;
         _cm = new ConfusionMatrix[nthresholds];
@@ -799,7 +818,7 @@ public class GLMSolver {
         _n += models[0]._vals[0]._n;
         _deviance = models[0]._vals[0]._deviance;
         _nullDeviance = models[0]._vals[0]._nullDeviance;
-        for(int i = 1; i < models.length; ++i){
+        for(i = 1; i < models.length; ++i){
           _n += models[i]._vals[0]._n;
           _deviance += models[0]._vals[0]._deviance;
           _nullDeviance += models[0]._vals[0]._nullDeviance;
@@ -819,12 +838,7 @@ public class GLMSolver {
       }
       _aic = 2*(models[0]._beta.length+1) + _deviance;
       _dof = _n - models[0]._beta.length - 1;
-      _modelKeys = new Key[models.length];
-      int i = 0;
-      for(GLMModel xm:models){
-        if(xm.key() == null)xm.store();
-        _modelKeys[i++] = xm.key();
-      }
+
     }
 
     public GLMValidation(){}

@@ -64,7 +64,7 @@ public class GLMScore extends Request {
         JsonObject res = new JsonObject();
         ValueArray ary = _dataKey.value();
         GLMModel m = _modelKey.value();
-        GLMValidation v = m.validateOn(ary, null, _thresholds.value()._arr);
+        GLMValidation v = _thresholds.disabled()?m.validateOn(ary, null, null):m.validateOn(ary, null, _thresholds.value()._arr);
         m.store();
         // Display HTML setup
         Response r = Response.done(res);
