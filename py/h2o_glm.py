@@ -31,19 +31,19 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     print "\nGLMModel/validations/err:", validations['err']
 
     if (not family in kwargs) or kwargs['family']=='poisson' or kwargs['family']=="gaussian":
-        # FIX! xval not in gaussian or poisson?
+        # FIX! x_value not in gaussian or poisson?
         pass
     else:
-        if ('xval' in kwargs):
+        if ('x_value' in kwargs):
             # no cm in poisson?
             cmList = validations['cm']
 
-            xvalList = glm['xval']
-            xval = xvalList[0]
+            x_valueList = glm['x_value']
+            x_value = x_valueList[0]
             # FIX! why is this returned as a list? no reason?
-            validationsList = xval['validations']
+            validationsList = x_value['validations']
             validations = validationsList[0]
-            print "\nxval/../validations/err:", validations['err']
+            print "\nx_value/../validations/err:", validations['err']
 
     # it's a dictionary!
     # get a copy, so we don't destroy the original when we pop the intercept

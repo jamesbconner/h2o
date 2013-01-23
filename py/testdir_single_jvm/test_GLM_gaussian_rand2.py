@@ -8,7 +8,7 @@ def define_params():
     paramDict = {
         'x': [0,1,15,33,34],
         'family': ['gaussian'],
-        'xval': [2,3,4,9,15],
+        'x_value': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'penalty': [None, 1e-8, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.5,1],
@@ -47,11 +47,11 @@ class Basic(unittest.TestCase):
             # default
             colX = 0 
             # form random selections of RF parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details 
+            # always need Y=54. and always need some x_value (which can be overwritten)
+            # with a different choice. we need the x_value to get the error details 
             # in the json(below)
             # always do gaussian!
-            kwargs = {'y': 54, 'xval': 3, 'family': "gaussian", 'penalty': 1e-4, 'case': 1}
+            kwargs = {'y': 54, 'x_value': 3, 'family': "gaussian", 'penalty': 1e-4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

@@ -7,7 +7,7 @@ import h2o, h2o_cmd
 import h2o_glm
 
 # none is illegal for threshold
-# always run with xval, to make sure we get the trainingErrorDetails
+# always run with x_value, to make sure we get the trainingErrorDetails
 # FIX! we'll have to do something for gaussian. It doesn't return the ted keys below
 
 # some newer args for new port
@@ -18,7 +18,7 @@ def define_params():
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         # FIX! does None default to anything? I guess binomial
         'family': ['gaussian', 'binomial'],
-        'xval': [2,3,4,9],
+        'x_value': [2,3,4,9],
         'threshold': [0.1, 0.5, 0.7, 0.9],
         # 'penalty': [None, 1e-8, 1e-4,1,10,1e4],
         # Update: None is a problem with 'fail to converge'

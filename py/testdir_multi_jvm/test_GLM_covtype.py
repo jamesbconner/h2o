@@ -24,21 +24,21 @@ class Basic(unittest.TestCase):
         max_iter = 30
 
         # L2 
-        kwargs = {'y': y, 'xval': 0, 'case': 1, 'alpha': 0, 'penalty': 0, 'max_iter': max_iter}
+        kwargs = {'y': y, 'x_value': 0, 'case': 1, 'alpha': 0, 'penalty': 0, 'max_iter': max_iter}
         start = time.time()
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         print "glm (L2) end on ", csvPathname, 'took', time.time() - start, 'seconds'
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
 
         # Elastic
-        kwargs = {'y': y, 'xval': 0, 'case': 1, 'alpha': 0.5, 'penalty': 1e-4, 'max_iter': max_iter}
+        kwargs = {'y': y, 'x_value': 0, 'case': 1, 'alpha': 0.5, 'penalty': 1e-4, 'max_iter': max_iter}
         start = time.time()
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         print "glm (Elastic) end on ", csvPathname, 'took', time.time() - start, 'seconds'
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
 
         # L1
-        kwargs = {'y': y, 'xval': 0, 'case': 1, 'alpha': 1.0, 'penalty': 1e-4, 'max_iter': max_iter}
+        kwargs = {'y': y, 'x_value': 0, 'case': 1, 'alpha': 1.0, 'penalty': 1e-4, 'max_iter': max_iter}
         start = time.time()
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         print "glm (L1) end on ", csvPathname, 'took', time.time() - start, 'seconds'

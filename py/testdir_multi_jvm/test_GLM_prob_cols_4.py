@@ -50,7 +50,7 @@ paramDict = {
     'max_iter': [50],
     'weight': [1.0],
     'thresholds': [0.5],
-    'xval': [2],
+    'x_value': [2],
     'expand_cat': [0],
     'beta_epsilon': [1.0E-4],
     }

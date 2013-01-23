@@ -12,7 +12,7 @@ def define_params():
         'x': [0,1,15,33],
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'family': [None, 'gaussian', 'binomial', 'poisson'],
-        'xval': [2,3,4,9],
+        'x_value': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'penalty': [None, 0, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.3,1],
@@ -55,8 +55,8 @@ class Basic(unittest.TestCase):
             # default
             colX = 0
             # form random selections of GLM parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details
+            # always need Y=54. and always need some x_value (which can be overwritten)
+            # with a different choice. we need the x_value to get the error details
             # in the json(below)
             kwargs = {'y': 54, 'penalty': 1e4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))

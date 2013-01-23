@@ -125,7 +125,7 @@ class Basic(unittest.TestCase):
                     'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'xval': 3,
+                    'x_value': 3,
                     'beta_epsilon': 1e-4,
                     'thresholds': 0.5,
                     }
