@@ -366,37 +366,45 @@ public class GLMSolver {
       GramMatrixTask gtask = null;
       ArrayList<String> warns = new ArrayList();
       long t1 = System.currentTimeMillis();
-   OUTER:
+      OUTER:
       while(_iterations++ < _glmParams._maxIter ) {
         gtask = new GramMatrixTask(this);
         gtask._s = _s;
         gtask.invoke(_dataset);
         double [] beta = null;
+        boolean foundNaNs = false;
         for( int i = 0; i < 20; ++i) {
+          Matrix xx = gtask._gram.getXX();
+          Matrix xy = gtask._gram.getXY();
           try {
-            Matrix xx = gtask._gram.getXX();
-            Matrix xy = gtask._gram.getXY();
             beta = _solver.solve(xx,xy);
-            for(double d:beta)if(Double.isNaN(d) || Double.isInfinite(d)){
-              warns.add("Failed to converge!"); // TODO add penalty
-              break OUTER;
-            }
-            break;
+            // Check for broken solution
+            foundNaNs = hasNaNsOrInfs(beta) || gtask._gram.hasNaNsOrInfs();
+            if( !foundNaNs )    // Clean?
+              break;
           } catch( RuntimeException e ) {
             if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
               throw e;
-            if(gtask._gram.hasNaNsOrInfs()){ // failed to converge
-              warns.add("Failed to converge!");
-              break OUTER;
-            }
+            // If SPD matrix, add more rho and go again.  Need to reset the
+            // beta's and recompute the Gram, as the existing beta's are
+            // steering us into SPD's.
             _solver._rho = (_solver._rho == 0)?1e-8:10*_solver._rho;
+            _beta = new double[_beta.length];
+            warns.add("Gram matrix is not symmetric positive definite.  Bumping rho to "+_solver._rho+" and recomputing Gram from scratch");
+            continue OUTER;
           }
+          // Founds NaNs or Infs.  Add some penalty and go again
+          _solver._lambda *= 10;
+          warns.add("Failed to converge.  Bumping lambda to "+_solver._lambda+" and solving again");
         }
-        if( beta == null ) {      // Failed after 20 goes?
-          warns.add("Cannot solve");
+        if( beta == null || foundNaNs ) {
+          warns.add("Unable to solve!");
           gtask = null;
           break;
         }
+        
+        // Compute max change in coef's from last iteration to this one,
+        // and exit if nothing has changed more than _betaEps
         double diff = 0.0;
         for(int i = 0; i < gtask._beta.length; ++i)
           diff = Math.max(diff, Math.abs(beta[i] - _beta[i]));
@@ -411,7 +419,15 @@ public class GLMSolver {
         _warnings = warns.toArray(new String[warns.size()]);
     }
 
-   public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
+    private static boolean hasNaNsOrInfs( double[] ds ) {
+      for( double d : ds )
+        if( Double.isNaN(d) || Double.isInfinite(d) )
+          return true;
+      return false;
+    }
+    
+
+    public GLMValidation validateOn(ValueArray ary, Sampling s, double [] thresholds){
       int [] colIds = new int [_colNames.length];
       if(!isCompatible(ary,colIds))throw new GLMException("incompatible dataset");;
       GLMValidationTask valTsk = new GLMValidationTask(ary._key,colIds);
