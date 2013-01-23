@@ -125,7 +125,7 @@ def runRFOnly(node=None, parseKey=None, trees=5,
     ntree    = rf['ntree']
 
     # /ip:port of cloud (can't use h2o name)
-    rfClass= rf['class']
+    rfClass= rf['response_variable']
 
     def test(n):
         rfView = n.random_forest_view(data_key, model_key, timeoutSecs, **kwargs)
