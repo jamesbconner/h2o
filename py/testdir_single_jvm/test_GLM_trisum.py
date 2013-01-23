@@ -8,7 +8,7 @@ def define_params():
     paramDict = {
         'family': ['binomial'],
         'lambda': [1.0E-4],
-        'alpha': [1.0],
+        'alpha': [0.5],
         'max_iter': [2000],
         'weight': [1.0],
         'thresholds': [0.5],
@@ -63,7 +63,7 @@ class Basic(unittest.TestCase):
 
         y = 10
         # FIX! what should we have for case? 1 should be okay because we have 1's in output col
-        kwargs = {'y': y, 'max_iter': 30}
+        kwargs = {'y': y, 'max_iter': 50}
         kwargs.update(paramDict2)
 
         start = time.time()
