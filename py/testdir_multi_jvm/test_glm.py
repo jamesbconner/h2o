@@ -19,7 +19,7 @@ class GLMTest(unittest.TestCase):
     def process_dataset(self,key,Y, e_coefs, e_ndev, e_rdev, e_aic, **kwargs):
         # no regularization
         kwargs['alpha'] = 0
-        kwargs['lambda'] = 0
+        kwargs['penalty'] = 0
         glm = h2o_cmd.runGLMOnly(parseKey = key, Y = 'CAPSULE', timeoutSecs=10, **kwargs)
 
         GLMModel = glm['GLMModel']

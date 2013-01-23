@@ -119,14 +119,14 @@ class Basic(unittest.TestCase):
 
             y = colCount
             kwargs = {'y': y, 'max_iter': 60, 
-                    'lambda': 10,
+                    'penalty': 10,
                     'alpha': 1.0,
                     'weight': 1.0,
                     'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'xval': 3,
-                    'beta_eps': 1e-4,
+                    'x_value': 3,
+                    'beta_epsilon': 1e-4,
                     'thresholds': 0.5,
                     }
 

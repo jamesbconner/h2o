@@ -1,16 +1,17 @@
 package water.api;
 
+import hex.GLMSolver.CaseMode;
+import hex.GLMSolver.Family;
 import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.*;
+import hex.GLMSolver.Link;
 import hex.rf.Model;
 
 import java.io.File;
 import java.util.*;
 
-import org.apache.poi.ss.formula.functions.Columns;
-
 import water.*;
 import water.ValueArray.Column;
+import water.util.Check;
 import water.web.RString;
 
 import com.google.common.base.Objects;
@@ -315,6 +316,8 @@ public class RequestArguments extends RequestStatics {
       _required = required;
       _refreshOnChange = false;
       _arguments.add(this);
+
+      assert Check.paramName(_name);
     }
 
     /** Adds the given argument as a prerequisite. This means that current

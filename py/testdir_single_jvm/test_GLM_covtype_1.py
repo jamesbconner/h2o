@@ -21,42 +21,42 @@ class Basic(unittest.TestCase):
         h2o.tear_down_cloud()
 
     # FIX! fails
-    def test_A_covtype_no_xval(self):
+    def test_A_covtype_no_x_value(self):
         start = time.time()
         kwargs = {'y': y, 'case': 1}
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm no xval end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm no x_value end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
     # FIX! fails
-    def test_B_covtype_xval_0(self):
+    def test_B_covtype_x_value_0(self):
         start = time.time()
-        kwargs = {'y': y, 'xval': 0, 'case': 1}
+        kwargs = {'y': y, 'x_value': 0, 'case': 1}
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm xval=0 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm x_value=0 end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
     # FIX! fails
-    def test_C_covtype_xval_1(self):
+    def test_C_covtype_x_value_1(self):
         start = time.time()
-        kwargs = {'y': y, 'xval': 1, 'case': 1}
+        kwargs = {'y': y, 'x_value': 1, 'case': 1}
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm xval=1 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm x_value=1 end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
-    def test_D_covtype_xval_2(self):
+    def test_D_covtype_x_value_2(self):
         start = time.time()
-        kwargs = {'y': y, 'xval': 2, 'case': 1}
+        kwargs = {'y': y, 'x_value': 2, 'case': 1}
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm xval=2 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm x_value=2 end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
-    def test_E_covtype_xval_10(self):
+    def test_E_covtype_x_value_10(self):
         start = time.time()
-        kwargs = {'y': y, 'xval': 10, 'case': 1}
+        kwargs = {'y': y, 'x_value': 10, 'case': 1}
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm xval=10 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm x_value=10 end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
     h2o.unit_main()

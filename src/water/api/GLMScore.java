@@ -18,10 +18,10 @@ import com.google.gson.JsonObject;
  *
  */
 public class GLMScore extends Request {
-    public static final String JSON_MODEL_KEY = "modelKey";
-    protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(JSON_MODEL_KEY,true);
+    protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(MODEL_KEY,true);
     protected final H2OHexKey _dataKey = new H2OHexKey(KEY);
-    protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false, new NumberSequence("0:1:0.01", false, 0.01),false);
+    protected final RSeq _thresholds = new RSeq(DTHRESHOLDS, false,
+        new NumberSequence("0:1:0.01", false, 0.01),false);
 
     @Override
     protected void queryArgumentValueSet(water.api.RequestArguments.Argument arg, java.util.Properties inputArgs) {
@@ -38,7 +38,7 @@ public class GLMScore extends Request {
 
     public static String link(Key k, double threshold, String content) {
       RString rs = new RString("<a href='GLMScore.query?%key_param=%$key&thresholds=%threshold'>%content</a>");
-      rs.replace("key_param", JSON_MODEL_KEY);
+      rs.replace("key_param", MODEL_KEY);
       rs.replace("key", k.toString());
       rs.replace("threshold", threshold);
       rs.replace("content", content);

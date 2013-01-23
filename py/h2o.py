@@ -560,14 +560,14 @@ class H2O(object):
             requests.get(
                 self.__url('WWWFileUpload.json'), 
                 timeout=timeoutSecs,
-                params={"Key": key}), 
+                params={"key": key}), 
             extraComment = str(f) + "," + str(key))
 
         verboseprint("\nput_file #1 phase response: ", dump_json(resp1))
         resp2 = self.__check_request(
             requests.post(
                 self.__url('Upload.json', port=resp1['port']), 
-                files={"File": open(f, 'rb')}),
+                files={"file": open(f, 'rb')}),
             extraComment = str(f))
 
         verboseprint("put_file #2 phase response: ", dump_json(resp2))
@@ -673,7 +673,7 @@ class H2O(object):
     # H2O doesn't support yet?
     def Store2HDFS(self, key):
         a = self.__check_request(requests.get(self.__url('Store2HDFS.json'),
-            params={"Key": key}))
+            params={"key": key}))
         verboseprint("\ninspect result:", dump_json(a))
         return a
 
@@ -718,9 +718,6 @@ class H2O(object):
             'model_key': 'pytest_model',
             }
         browseAlso = kwargs.pop('browseAlso',False)
-        clazz = kwargs.pop('clazz', None)
-        if clazz is not None: params_dict['class'] = clazz
-
         params_dict.update(kwargs)
         print "\nrandom_forest parameters:", params_dict
         a = self.__check_request(requests.get(
@@ -742,8 +739,6 @@ class H2O(object):
             }
 
         browseAlso = kwargs.pop('browseAlso',False)
-        clazz = kwargs.pop('clazz', None)
-        if clazz is not None: params_dict['class'] = clazz
 
         # only update params_dict..don't add
         # throw away anything else as it should come from the model (propagating what RF used)

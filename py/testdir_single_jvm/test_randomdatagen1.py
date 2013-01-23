@@ -19,7 +19,7 @@ class Basic(unittest.TestCase):
     def test_A_randomdata2(self):
         print "Using smalldata/datagen1.csv as is"
         csvPathname = h2o.find_file('smalldata/datagen1.csv')
-        h2o_cmd.runRF(trees=1, clazz=2, timeoutSecs=10, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=1, response_variable=2, timeoutSecs=10, csvPathname=csvPathname)
 
     def test_B_randomdata2_1_lineend(self):
         print "Using smalldata/datagen1.csv to create", SYNDATASETS_DIR, "/datagen1.csv with \r instead" 
@@ -37,7 +37,7 @@ class Basic(unittest.TestCase):
         infile.close()
         outfile.close()
 
-        h2o_cmd.runRF(trees=1, clazz=2, timeoutSecs=10, csvPathname=csvPathname2)
+        h2o_cmd.runRF(trees=1, response_variable=2, timeoutSecs=10, csvPathname=csvPathname2)
 
 
 if __name__ == '__main__':

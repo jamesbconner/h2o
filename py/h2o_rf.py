@@ -1,6 +1,6 @@
 # currently:
 # random_forest_view result: {
-#   "class": 8, 
+#   "response_variable": 8, 
 #   "confusion_key": "ConfusionMatrix of (1dd49500-cb8b-415a-a7f2-4bb8f4f716ce.hex[8],pytest_model[237],0)", 
 #   "confusion_matrix": {
 #     "header": [ "0", "1", "2", "3" ], 
@@ -42,7 +42,7 @@ def simpleCheckRFView(node, rfv,**kwargs):
             if ('Failed' in w) or ('failed' in w):
                 raise Exception(w)
 
-    oclass = rfv['class']
+    oclass = rfv['response_variable']
     if (oclass<0 or oclass>20000):
         raise Exception("class in RFView seems wrong. class:", oclass)
 
