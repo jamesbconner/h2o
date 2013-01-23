@@ -22,7 +22,7 @@ class Basic(unittest.TestCase):
                 nodeX = random.randint(0,lenNodes-1) 
                 # print nodeX 
                 # FIX! can add repl
-                p =  h2o.nodes[nodeX].put_value(trial)
+                p =  h2o.nodes[nodeX].put_value(trial, key=trial)
                 trial += 1
 
             # dump some cloud info so we can see keys?

@@ -37,8 +37,6 @@ class Basic(unittest.TestCase):
         print "\nx:", x
         print "y:", y
         
-        # FIX! hacking with norm = L2 to get it to pass now. ELASTIC default won't? maybe
-        # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
         kwargs = {
             'x': x, 'y':  y, 'xval': 2, 
             'lambda': '1e-8:1e3:100', 
@@ -70,8 +68,6 @@ class Basic(unittest.TestCase):
                 print "\n0 is member ID. not used"
             elif (appendx == 1):
                 print "\n1 is output."
-            elif (appendx == 7): 
-                print "\nSkipping 7. Causes NaN. Ok now, later though?"
             else:
                 xList.append(appendx)
 

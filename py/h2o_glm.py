@@ -190,7 +190,6 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
 #       "error_1": 0.0, 
 #       "key": "__GLMModel_8b0fc26c-3a9c-4c4b-8cf6-240cc5b60508", 
 #       "lambda": 0.009999999999999998, 
-#       "rho": 1e-06
 #     }, 
     model0 = glmGridResult['models'][0]
     alpha = model0['alpha']
@@ -201,7 +200,6 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
     print "best GLM model key:", key
 
     glm_lambda = model0['lambda']
-    rho = model0['rho']
 
     # now indirect to the GLM result/model that's first in the list (best)
     inspectGLM = h2o_cmd.runInspect(None, key)

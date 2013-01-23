@@ -30,16 +30,11 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
 paramDict = {
     'family': ['binomial'],
-    'norm': ['ELASTIC'],
-    'lambda_1': [1.0E-5],
-    'lambda_2': [1.0E-8],
+    'lambda': [1.0E-8],
     'alpha': [1.0],
-    'rho': [0.01],
     'max_iter': [50],
     'weight': [1.0],
     'threshold': [0.4],
-    'case': ['NaN'],
-    # 'link': [familyDefault],
     'xval': [1],
     'expand_cat': [1],
     'beta_eps': [1.0E-4],
@@ -108,7 +103,7 @@ class Basic(unittest.TestCase):
                 paramDict2[k] = paramDict[k][0]
 
             y = colCount
-            kwargs = {'y': y, 'case': 'NaN'}
+            kwargs = {'y': y}
             kwargs.update(paramDict2)
 
             start = time.time()

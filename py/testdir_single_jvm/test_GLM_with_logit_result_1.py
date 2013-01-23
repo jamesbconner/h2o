@@ -118,10 +118,9 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             y = colCount
-            kwargs = {'y': y, 'norm': 'ELASTIC', 'max_iter': 60, 'case': 'NaN',
-                    'lambda': 100000,
+            kwargs = {'y': y, 'max_iter': 60, 
+                    'lambda': 10,
                     'alpha': 1.0,
-                    'rho': 1e3,
                     'weight': 1.0,
                     'link': 'familyDefault',
                     # what about these?

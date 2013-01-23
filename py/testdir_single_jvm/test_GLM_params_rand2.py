@@ -13,11 +13,7 @@ def define_params():
         'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'xval': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        # 'norm': [None,'L1', 'L2'],
-        # always need L1 or L2? to avoid Gram Matrix SPD
-        'norm': ['L1', 'L2'],
-        'lambda': [None, 1e-4,1,10,1e4],
-        'rho': [None, 1e-4,1,10,1e4],
+        'lambda': [None, 0,1e-4,1,10,1e4],
         'alpha': [None, 0,0.8,1],
         # new?
         'beta_eps': [None, 0.0001],
@@ -60,7 +56,7 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details
             # in the json(below)
-            kwargs = {'y': 54, 'norm': 'L2', 'case': 1}
+            kwargs = {'y': 54, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

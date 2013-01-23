@@ -24,7 +24,7 @@ for i in range(8):
 #        'MatrixRes<n> = slice(<keyX>[<col1>],<row>)',
 exprList = [
         'ColumnRes<n> = factor(<keyX>[53]) + ColumnRes<n-1>',
-        'ColumnRes<n> = randomBitVector(19,0) + ColumnRes<n-1>',
+        'ColumnRes<n> = randomBitVector(19,0,1) + ColumnRes<n-1>',
         'ColumnRes<n> = log(<keyX>[<col1>]) + ColumnRes<n-1>',
         'ColumnRes<n> = <keyX>[<col1>] + <keyX>[<col2>] + <keyX>[2]',
         'MatrixRes<n> = colSwap(<keyX>,<col1>,(<keyX>[2]==0 ? 54321 : 54321))',

@@ -22,7 +22,6 @@ argcaseList = [
         'y': 107,
         'case': 1,
         'family': 'gaussian',
-        'norm': 'L2',
         'lambda': 1.0E-5,
         'max_iter': 50,
         'weight': 1.0,

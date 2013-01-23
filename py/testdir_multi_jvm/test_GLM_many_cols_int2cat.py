@@ -30,17 +30,10 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
 paramDict = {
     'family': ['binomial'],
-    'norm': ['L2'],
-    'lambda_1': [1.0E-5],
-    'lambda_2': [1.0E-8],
-    'alpha': [1.0],
-    'rho': [0.01],
+    'lambda': [1.0E-5],
     'max_iter': [50],
     'weight': [1.0],
     'thresholds': [0.5],
-    # 'case': [NaN],
-    # 'case': [None],
-    # 'link': [familyDefault],
     'xval': [2],
     'expand_cat': [1],
     'beta_eps': [1.0E-4],
@@ -113,7 +106,8 @@ class Basic(unittest.TestCase):
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            # only col y-1 (next to last)doesn't get renamed in coefficients due to enum/categorical expansion
+            # only col y-1 (next to last)doesn't get renamed in coefficients 
+            # due to enum/categorical expansion
             print "y:", y 
             h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 

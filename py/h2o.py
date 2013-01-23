@@ -616,7 +616,7 @@ class H2O(object):
         # don't really need this, maybe better if tests all use 'destination_key'
         if key2 is not None: params_dict['destination_key'] = key2
         params_dict.update(kwargs)
-        print "KMeans params list", params_dict
+        print "\nKMeans params list", params_dict
         a = self.__check_request(
             requests.get(
                 url=self.__url('KMeans.json'),
@@ -791,12 +791,11 @@ class H2O(object):
             'family': 'binomial',
             'key': key,
             'y': 1,
-            'case': 'NaN',
             'link': 'familyDefault'
         }
 
         params_dict.update(kwargs)
-        print "GLM params list", params_dict
+        print "\nGLM params list", params_dict
 
         a = self.__check_request(requests.get(
             self.__url(parentName + '.json'),
@@ -849,7 +848,7 @@ class H2O(object):
             'thresholds': 0.5,
         }
         params_dict.update(kwargs)
-        print "GLMScore params list", params_dict
+        print "\nGLMScore params list", params_dict
 
         a = self.__check_request(requests.get(
             self.__url('GLMScore.json'),

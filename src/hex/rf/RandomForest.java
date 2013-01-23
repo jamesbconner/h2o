@@ -31,6 +31,7 @@ public class RandomForest {
     Tree[] trees      = new Tree[ntrees];
 
  //FIXME   String str = data.rows()+" rows and " + data.badRows() + " rows contains NaN.";
+    Utils.pln("[RF] number of split features: "+ drf.numSplitFeatures());
     String str = data.rows()+" rows ";
     Utils.pln("[RF] starting RF computation with "+ str);
 

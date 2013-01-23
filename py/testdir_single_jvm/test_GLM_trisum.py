@@ -7,15 +7,11 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 def define_params():
     paramDict = {
         'family': ['binomial'],
-        'norm': ['L1', 'L2', 'ELASTIC'],
-        'lambda': [1.0E-5],
+        'lambda': [1.0E-4],
         'alpha': [1.0],
-        'rho': [0.01],
-        'max_iter': [50],
+        'max_iter': [2000],
         'weight': [1.0],
         'thresholds': [0.5],
-        # 'case': [NaN],
-        'case': ['NaN'],
         # 'link': [familyDefault],
         'xval': [1],
         'expand_cat': [1],
@@ -49,7 +45,7 @@ class Basic(unittest.TestCase):
 
         csvFilename = "logreg_trisum_int_cat_10000x10.csv"
         csvPathname = "smalldata/logreg/" + csvFilename
-        key2 = csvFilename = ".hex"
+        key2 = csvFilename + ".hex"
 
         parseKey = h2o_cmd.parseFile(None, h2o.find_file(csvPathname), key2=key2, timeoutSecs=10)
         print csvFilename, 'parse time:', parseKey['response']['time']
@@ -67,7 +63,7 @@ class Basic(unittest.TestCase):
 
         y = 10
         # FIX! what should we have for case? 1 should be okay because we have 1's in output col
-        kwargs = {'y': y, 'max_iter': 30, 'case': 'NaN'}
+        kwargs = {'y': y, 'max_iter': 30}
         kwargs.update(paramDict2)
 
         start = time.time()

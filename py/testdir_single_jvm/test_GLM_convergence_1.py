@@ -19,10 +19,7 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
     for i in range(rowCount):
         rowData = []
         rowTotal = 0
-        # do jumpahead per row, so the combination of rows plus col dice rolls
-        # doesn't allow prediction of the RNG so well? (an issue with 500 col datasets)
         for j in range(colCount):
-            # ri1 = int(r1.gauss(1,.1))
             ri1 = r1.randint(0,1)
             rowData.append(ri1)
 
@@ -38,9 +35,7 @@ class Basic(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         global SEED
-        ### SEED = random.randint(0, sys.maxint)
-        ### SEED = 8389506152467586392
-        SEED = 2437856391921621805
+        SEED = random.randint(0, sys.maxint)
         random.seed(SEED)
         print "\nUsing random seed:", SEED
         global local_host
@@ -89,10 +84,10 @@ class Basic(unittest.TestCase):
 
             y = colCount
             kwargs = {
-                    'max_iter': 40, 
-                    'case': 'NaN', 
+                    'max_iter': 10, 
                     'lambda': 1,
-                    'alpha': 0,
+                    # alpha=1 is slower?
+                    'alpha': 0.5,
                     # weight for true (1). 
                     'weight': 1.0,
                     'link': 'familyDefault',
@@ -109,24 +104,27 @@ class Basic(unittest.TestCase):
                 kwargs['y'] = y
 
             emsg = None
-            for i in range(25):
+            # FIX! how much should we loop here. 
+            for i in range(3):
                 start = time.time()
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
                 print 'glm #', i, 'end on', csvPathname, 'took', time.time() - start, 'seconds'
                 # we can pass the warning, without stopping in the test, so we can 
                 # redo it in the browser for comparison
-                (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
+                (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, 
+                    glm, None, allowFailWarning=True, **kwargs)
 
-                print "\n", "\ncoefficients in col order:"
-                # since we're loading the x50 file all the time..the real colCount 
-                # should be 50 (0 to 49)
-                if USEKNOWNFAILURE:
-                    showCols = 50
-                else:
-                    showCols = colCount
-                for c in range(showCols):
-                    print "%s:\t%s" % (c, coefficients[c])
-                print "intercept:\t", intercept
+                if 1==0:
+                    print "\n", "\ncoefficients in col order:"
+                    # since we're loading the x50 file all the time..the real colCount 
+                    # should be 50 (0 to 49)
+                    if USEKNOWNFAILURE:
+                        showCols = 50
+                    else:
+                        showCols = colCount
+                    for c in range(showCols):
+                        print "%s:\t%.6e" % (c, coefficients[c])
+                    print "intercept:\t %.6e" % intercept
 
                 # gets the failed to converge, here, after we see it in the browser too
                 x = re.compile("[Ff]ailed")

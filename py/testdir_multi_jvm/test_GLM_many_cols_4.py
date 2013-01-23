@@ -35,18 +35,11 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
 
 paramDict = {
     'family': ['binomial'],
-    # 'norm': ['ELASTIC'],
-    'norm': ['L2'],
-    'lambda_1': [1.0E-5],
-    'lambda_2': [1.0E-8],
+    'lambda': [1.0E-5],
     'alpha': [1.0],
-    'rho': [0.01],
     'max_iter': [50],
     'weight': [1.0],
     'thresholds': [0.5],
-    # 'case': [NaN],
-    # 'case': [None],
-    # 'link': [familyDefault],
     'xval': [2],
     'expand_cat': [0],
     'beta_eps': [1.0E-4],
@@ -75,7 +68,7 @@ class Basic(unittest.TestCase):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
-            (1000000,  100, 'cA', 600),
+            (100000,  100, 'cA', 600),
             ]
 
         ### h2b.browseTheCloud()
@@ -103,7 +96,7 @@ class Basic(unittest.TestCase):
 
             # since we add the output twice, it's no longer colCount-1
             y = colCount
-            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
+            kwargs = {'y': y, 'max_iter': 50}
             kwargs.update(paramDict2)
 
             start = time.time()
