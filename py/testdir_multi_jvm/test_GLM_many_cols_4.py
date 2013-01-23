@@ -96,7 +96,7 @@ class Basic(unittest.TestCase):
 
             # since we add the output twice, it's no longer colCount-1
             y = colCount
-            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
+            kwargs = {'y': y, 'max_iter': 50}
             kwargs.update(paramDict2)
 
             start = time.time()

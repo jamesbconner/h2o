@@ -35,7 +35,6 @@ paramDict = {
     'max_iter': [50],
     'weight': [1.0],
     'threshold': [0.4],
-    'case': ['NaN'],
     'xval': [1],
     'expand_cat': [1],
     'beta_eps': [1.0E-4],
@@ -104,7 +103,7 @@ class Basic(unittest.TestCase):
                 paramDict2[k] = paramDict[k][0]
 
             y = colCount
-            kwargs = {'y': y, 'case': 'NaN'}
+            kwargs = {'y': y}
             kwargs.update(paramDict2)
 
             start = time.time()

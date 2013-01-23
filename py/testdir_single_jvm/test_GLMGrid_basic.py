@@ -68,8 +68,6 @@ class Basic(unittest.TestCase):
                 print "\n0 is member ID. not used"
             elif (appendx == 1):
                 print "\n1 is output."
-            elif (appendx == 7): 
-                print "\nSkipping 7. Causes NaN. Ok now, later though?"
             else:
                 xList.append(appendx)
 

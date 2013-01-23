@@ -85,7 +85,6 @@ class Basic(unittest.TestCase):
             y = colCount
             kwargs = {
                     'max_iter': 10, 
-                    'case': 'NaN', 
                     'lambda': 1,
                     # alpha=1 is slower?
                     'alpha': 0.5,
@@ -115,17 +114,17 @@ class Basic(unittest.TestCase):
                 (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, 
                     glm, None, allowFailWarning=True, **kwargs)
 
-                print "\n", "\ncoefficients in col order:"
-                # since we're loading the x50 file all the time..the real colCount 
-                # should be 50 (0 to 49)
-                if USEKNOWNFAILURE:
-                    showCols = 50
-                else:
-                    showCols = colCount
-            
-                for c in range(showCols):
-                    print "%s:\t%.6e" % (c, coefficients[c])
-                print "intercept:\t %.6e" % intercept
+                if 1==0:
+                    print "\n", "\ncoefficients in col order:"
+                    # since we're loading the x50 file all the time..the real colCount 
+                    # should be 50 (0 to 49)
+                    if USEKNOWNFAILURE:
+                        showCols = 50
+                    else:
+                        showCols = colCount
+                    for c in range(showCols):
+                        print "%s:\t%.6e" % (c, coefficients[c])
+                    print "intercept:\t %.6e" % intercept
 
                 # gets the failed to converge, here, after we see it in the browser too
                 x = re.compile("[Ff]ailed")
