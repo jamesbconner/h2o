@@ -25,23 +25,23 @@ class Basic(unittest.TestCase):
         # don't need to exclude specifically any more...algo handles it
         if (1==0):
             for appendx in xrange(107):
-                if (appendx == 9):
+                if (1==0 and appendx == 9):
                     print "9 causes singularity. not used"
-                elif (appendx == 12): 
+                elif (1==0 and appendx == 12): 
                     print "12 causes singularity. not used"
-                elif (appendx == 25): 
+                elif (1==0 and appendx == 25): 
                     print "25 causes singularity. not used"
-                elif (appendx == 53): 
+                elif (1==0 and appendx == 53): 
                     print "53 causes singularity. not used"
-                elif (appendx == 54): 
+                elif (1==0 and appendx == 54): 
                     print "54 causes singularity. not used"
-                elif (appendx == 76): 
+                elif (1==0 and appendx == 76): 
                     print "76 causes singularity. not used"
-                elif (appendx == 91): 
+                elif (1==0 and appendx == 91): 
                     print "91 causes singularity. not used"
-                elif (appendx == 103): 
+                elif (1==0 and appendx == 103): 
                     print "103 causes singularity. not used"
-                elif (appendx == 106):
+                elif (1==0 and appendx == 106):
                     print "106 is output."
                 else:
                     if x == "": 

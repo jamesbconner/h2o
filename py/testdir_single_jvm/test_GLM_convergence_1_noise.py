@@ -102,11 +102,8 @@ class Basic(unittest.TestCase):
             kwargs = {
                     'max_iter': 40, 
                     'case': 'NaN', 
-                    'norm': 'ELASTIC',
                     'lambda': 1e-4,
                     'alpha': 1.0,
-                    # 'rho': 1e4,
-                    'rho': 1e2,
                     'weight': 1.0,
                     'link': 'familyDefault',
                     # 'link': 'familyDefault',

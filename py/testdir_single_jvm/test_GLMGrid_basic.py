@@ -80,7 +80,6 @@ class Basic(unittest.TestCase):
         print "\nx:", x
         print "y:", y
 
-        # lambda, alpha, rho, threshold
         # FIX! thresholds is used in GLMGrid. threshold is used in GLM
         # comma separated means use discrete values
         # colon separated is min/max/step
@@ -90,7 +89,6 @@ class Basic(unittest.TestCase):
             'beta_eps': 1e-4,
             'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
-            'rho:': '1e-8:1e3:100',
             'thresholds': '0:1:0.01'
             }
 

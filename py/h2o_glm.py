@@ -69,15 +69,16 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
                 # H2O will drop columns it things are constant
                 # assume non-existent means 0 ..print warning
                 if not unicode(c) in coefficients:
-                    value = 0
                     print "Warning: didn't see", unicode(c), "in json coefficient response.",\
-                          "Assuming 0 due to constant column)"
+                          "Inserting 'None' with assumption it was dropped due to constant column)"
+                    value = None
+                    cstring = cstring + "%s: %s   " % (c, value)
 
                 else:
                     value = coefficients[unicode(c)]
+                    cstring = cstring + "%s: %.5e   " % (c, value)
 
                 cList.append(value)
-                cstring = cstring + "%s: %.5e   " % (c, value)
             
     else:
         # instead, sort the keys? Get a list of tuple k/v pairs and sort

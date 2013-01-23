@@ -10,9 +10,10 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
     # getting correlated results?
     r1 = random.Random(SEED)
-    # keep a single thread from the original SEED, for repeatability.
-    SEED2 = r1.randint(0, sys.maxint)
-    r2 = random.Random(SEED2)
+    r1.jumpahead(922377089)   
+
+    r2 = random.Random(SEED)
+    r2.jumpahead(488915466)
     dsf = open(csvPathname, "w+")
 
     for i in range(rowCount):
@@ -20,8 +21,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
         rowTotal = 0
         # do jumpahead per row, so the combination of rows plus col dice rolls
         # doesn't allow prediction of the RNG so well? (an issue with 500 col datasets)
-        r1.jumpahead(922377089)   
-        r2.jumpahead(488915466)
         for j in range(colCount):
             # ri1 = int(r1.gauss(1,.1))
             ri1 = r1.randint(0,1)
@@ -92,15 +91,13 @@ class Basic(unittest.TestCase):
             kwargs = {
                     'max_iter': 40, 
                     'case': 'NaN', 
-                    'norm': 'NONE',
-                    'lambda': 1e4,
-                    'alpha': 1.0,
-                    'rho': 1,
+                    'lambda': 1,
+                    'alpha': 0,
+                    # weight for true (1). 
                     'weight': 1.0,
                     'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-
                     'xval': 0,
                     'beta_eps': 1e-4,
                     'thresholds': '0:1:0.01',
@@ -118,14 +115,7 @@ class Basic(unittest.TestCase):
                 print 'glm #', i, 'end on', csvPathname, 'took', time.time() - start, 'seconds'
                 # we can pass the warning, without stopping in the test, so we can 
                 # redo it in the browser for comparison
-                (warnings, c, i) = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
-
-                # print coefficients in col order. we know there is no header, 
-                # so using 0:53 will work on the dict
-                # it's a dictionary!
-                coefficients = glm['GLMModel']['coefficients']
-                # get the intercept out of there into it's own dictionary
-                intercept = coefficients.pop('Intercept', None)
+                (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
 
                 print "\n", "\ncoefficients in col order:"
                 # since we're loading the x50 file all the time..the real colCount 
@@ -135,7 +125,7 @@ class Basic(unittest.TestCase):
                 else:
                     showCols = colCount
                 for c in range(showCols):
-                    print "%s:\t%s" % (c, coefficients[unicode(c)])
+                    print "%s:\t%s" % (c, coefficients[c])
                 print "intercept:\t", intercept
 
                 # gets the failed to converge, here, after we see it in the browser too
