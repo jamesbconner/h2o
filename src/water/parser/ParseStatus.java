@@ -36,7 +36,7 @@ public class ParseStatus extends Iced {
       public ParseStatus atomic(ParseStatus old) {
         if( old._phase == phase) {
           old._sofar += steps;
-        } else if( old._phase.ordinal() < phase.ordinal() ) {
+        } else if( old._phase==null || old._phase.ordinal() < phase.ordinal() ) {
           old._phase = phase;
           old._sofar = steps;
         } else {
