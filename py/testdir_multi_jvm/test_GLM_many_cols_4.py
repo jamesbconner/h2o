@@ -68,7 +68,7 @@ class Basic(unittest.TestCase):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         translateList = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u']
         tryList = [
-            (1000000,  100, 'cA', 600),
+            (100000,  100, 'cA', 600),
             ]
 
         ### h2b.browseTheCloud()

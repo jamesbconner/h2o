@@ -28,7 +28,6 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
 
         # use r3 to randomly inject 5% noise. noise is complement
         for j in range(colCount):
-            # ri1 = int(r1.gauss(1,.1))
             ri1 = r1.randint(0,1)
             ri3 = r3.randint(0,1)
             rs = (ri1 + ri3) % 2
@@ -124,14 +123,8 @@ class Basic(unittest.TestCase):
                 print 'glm #', i, 'end on', csvPathname, 'took', time.time() - start, 'seconds'
                 # we can pass the warning, without stopping in the test, so we can 
                 # redo it in the browser for comparison
-                (warnings, c, i) = h2o_glm.simpleCheckGLM(self, glm, None, allowFailWarning=True, **kwargs)
-
-                # print coefficients in col order. we know there is no header, 
-                # so using 0:53 will work on the dict
-                # it's a dictionary!
-                coefficients = glm['GLMModel']['coefficients']
-                # get the intercept out of there into it's own dictionary
-                intercept = coefficients.pop('Intercept', None)
+                (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, 
+                    glm, None, allowFailWarning=True, **kwargs)
 
                 print "\n", "\ncoefficients in col order:"
                 # since we're loading the x50 file all the time..the real colCount 
@@ -141,8 +134,8 @@ class Basic(unittest.TestCase):
                 else:
                     showCols = colCount
                 for c in range(showCols):
-                    print "%s:\t%s" % (c, coefficients[unicode(c)])
-                print "intercept:\t", intercept
+                    print "%s:\t%.6e" % (c, coefficients[c])
+                print "intercept:\t %.6e" % intercept
 
                 # gets the failed to converge, here, after we see it in the browser too
                 x = re.compile("[Ff]ailed")
