@@ -968,6 +968,7 @@ public class GLMSolver {
       res.addProperty("dof", _dof);
       res.addProperty("resDev", _deviance);
       res.addProperty("nullDev", _nullDeviance);
+      res.addProperty("auc", _auc);
 
       if(_cm != null) {
         double [] err = _cm[_tid].classErr();
