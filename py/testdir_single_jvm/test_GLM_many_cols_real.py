@@ -96,7 +96,7 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             y = colCount - 1
-            kwargs = {'y': y, 'max_iter': 50, 'case': '0.1', 'norm': 'L2'}
+            kwargs = {'y': y, 'max_iter': 50, 'case': '0.1'}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

@@ -791,7 +791,6 @@ class H2O(object):
             'family': 'binomial',
             'key': key,
             'y': 1,
-            'case': 'NaN',
             'link': 'familyDefault'
         }
 

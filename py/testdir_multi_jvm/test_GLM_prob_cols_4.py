@@ -45,18 +45,11 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED, translateList):
 
 paramDict = {
     'family': ['binomial'],
-    # 'norm': ['ELASTIC'],
-    'norm': ['L2'],
-    'lambda_1': [1.0E-5],
-    'lambda_2': [1.0E-8],
+    'lambda': [1.0E-5],
     'alpha': [1.0],
-    'rho': [0.01],
     'max_iter': [50],
     'weight': [1.0],
     'thresholds': [0.5],
-    # 'case': [NaN],
-    # 'case': [None],
-    # 'link': [familyDefault],
     'xval': [2],
     'expand_cat': [0],
     'beta_eps': [1.0E-4],
@@ -115,7 +108,7 @@ class test_GLM_prob_cols_4(unittest.TestCase):
                 paramDict2[k] = paramDict[k][0]
 
             y = colCount
-            kwargs = {'y': y, 'max_iter': 50, 'case': 'NaN'}
+            kwargs = {'y': y, 'max_iter': 50}
             kwargs.update(paramDict2)
 
             start = time.time()

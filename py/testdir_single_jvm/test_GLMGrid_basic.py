@@ -37,8 +37,6 @@ class Basic(unittest.TestCase):
         print "\nx:", x
         print "y:", y
         
-        # FIX! hacking with norm = L2 to get it to pass now. ELASTIC default won't? maybe
-        # issue with case in GLM in h2o.py. have to set it to something otherwise H2O complains
         kwargs = {
             'x': x, 'y':  y, 'xval': 2, 
             'lambda': '1e-8:1e3:100', 

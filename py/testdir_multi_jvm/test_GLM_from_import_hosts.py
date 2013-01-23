@@ -56,7 +56,7 @@ class Basic(unittest.TestCase):
             start = time.time()
             # can't pass lamba as kwarg because it's a python reserved word
             # FIX! just look at X=0:1 for speed, for now
-            kwargs = {'y': 54, 'norm': "L2", 'xval': 2, 'family': "binomial", 'case': 1}
+            kwargs = {'y': 54, 'xval': 2, 'family': "binomial", 'case': 1}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=2000, **kwargs)
 
             # different when xvalidation is used? No trainingErrorDetails?
