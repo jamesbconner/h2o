@@ -15,12 +15,16 @@ public class Constants {
   public static final String BADAT                 = "badat";
   public static final String BASE                  = "base";
   public static final String BEST_THRESHOLD        = "best_threshold";
+  public static final String BETA_EPS              = "beta_epsilon";
   public static final String BIN_LIMIT             = "bin_limit";
   public static final String BUCKET                = "bucket";
-  public static final String CLASS                 = "class";
+  public static final String CASE                  = "case";
+  public static final String CASE_MODE             = "case_mode";
+  public static final String CLASS                 = "response_variable";
   public static final String CLOUD_NAME            = "cloud_name";
   public static final String CLOUD_SIZE            = "cloud_size";
   public static final String CLUSTERS              = "clusters";
+  public static final String COEFFICIENTS          = "coefficients";
   public static final String COLS                  = "cols";
   public static final String CONSENSUS             = "consensus";
   public static final String CONTENTS              = "contents";
@@ -32,13 +36,15 @@ public class Constants {
   public static final String DEPTH                 = "depth";
   public static final String DESCRIPTION           = "description";
   public static final String DEST_KEY              = "destination_key";
-  public static final String ESCAPE_NAN            = "escape_nan";
-  public static final String EXCLUSIVE_SPLIT_LIMIT = "exclusive_split_limit";
+  public static final String DTHRESHOLDS           = "thresholds";
   public static final String ENUM_DOMAIN           = "enum_domain";
   public static final String EPSILON               = "epsilon";
   public static final String ERROR                 = "error";
+  public static final String ESCAPE_NAN            = "escape_nan";
+  public static final String EXCLUSIVE_SPLIT_LIMIT = "exclusive_split_limit";
   public static final String EXPRESSION            = "expression";
   public static final String FAILED                = "failed";
+  public static final String FAMILY                = "family";
   public static final String FEATURES              = "features";
   public static final String FILE                  = "file";
   public static final String FILES                 = "files";
@@ -58,11 +64,13 @@ public class Constants {
   public static final String K                     = "k";
   public static final String KEY                   = "key";
   public static final String KEYS                  = "keys";
-  public static final String LAMBDA                = "lambda";
+  public static final String LAMBDA                = "penalty";
   public static final String LIMIT                 = "limit";
+  public static final String LINK                  = "link";
   public static final String LOCKED                = "locked";
   public static final String MAX                   = "max";
   public static final String MAX_DISK              = "max_disk" + Suffixes.BYTES;
+  public static final String MAX_ITER              = "max_iter";
   public static final String MAX_MEM               = "max_mem" + Suffixes.BYTES;
   public static final String MAX_ROWS              = "max_rows";
   public static final String MEAN                  = "mean";
@@ -71,6 +79,7 @@ public class Constants {
   public static final String MODELS                = "models";
   public static final String MORE                  = "more";
   public static final String NAME                  = "name";
+  public static final String NEG_X                 = "neg_x";
   public static final String NO_CM                 = "no_confusion_matrix";
   public static final String NODE                  = "node";
   public static final String NODE_NAME             = "node_name";
@@ -82,9 +91,10 @@ public class Constants {
   public static final String NUM_TREES             = "ntree";
   public static final String OBJECT                = "object";
   public static final String OFFSET                = "offset";
-  public static final String OOBEE                 = "oobee";
-  public static final String PATH                  = "path";
+  public static final String OOBEE                 = "out_of_bag_error_estimate";
   public static final String PARALLEL              = "parallel";
+  public static final String PATH                  = "path";
+  public static final String PREVIOUS_MODEL_KEY    = "previous_model_key";
   public static final String PROGRESS              = "progress";
   public static final String PROGRESS_TOTAL        = "progress_total";
   public static final String REDIRECT              = "redirect_request";
@@ -93,7 +103,6 @@ public class Constants {
   public static final String REQUEST_TIME          = "time";
   public static final String RESPONSE              = "response";
   public static final String RHO                   = "rho";
-  public static final String DTHRESHOLDS           = "thresholds";
   public static final String ROW                   = "row";
   public static final String ROW_DATA              = "row_data";
   public static final String ROW_SIZE              = "row_size";
@@ -148,8 +157,11 @@ public class Constants {
   public static final String VARIANCE              = "variance";
   public static final String VIEW                  = "view";
   public static final String WARNINGS              = "warnings";
+  public static final String WEB_ROOT_OBJECT       = "";
+  public static final String WEIGHT                = "weight";
   public static final String WEIGHTS               = "class_weights";
   public static final String WIDTH                 = "width";
-
-  public static final String WEB_ROOT_OBJECT       = "";
+  public static final String X                     = "x";
+  public static final String XVAL                  = "x_value";
+  public static final String Y                     = "y";
 }

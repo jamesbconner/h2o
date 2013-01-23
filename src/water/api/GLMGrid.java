@@ -23,7 +23,7 @@ public class GLMGrid extends Request {
 
   public static final String JSON_GLM_XVAL = "xval";
   public static final String JSON_GLM_CASE = "case";
-  public static final String JSON_GLM_CASE_MODE = "caseMode";
+  public static final String JSON_GLM_CASE_MODE = "case_mode";
   public static final String JSON_GLM_LINK = "link";
   public static final String JSON_GLM_FAMILY = "family";
 
