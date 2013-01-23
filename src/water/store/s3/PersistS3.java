@@ -76,7 +76,7 @@ public abstract class PersistS3 {
   // disk.  A racing delete can trigger a failure where we get a null return,
   // but no crash (although one could argue that a racing load&delete is a bug
   // no matter what).
-  public static byte[] file_load(Value v) {
+  public static byte[] fileLoad(Value v) {
     byte[] b = MemoryManager.malloc1(v._max);
     S3ObjectInputStream s = null;
     try {
@@ -94,7 +94,7 @@ public abstract class PersistS3 {
       S3Object s3obj = getObjectForKey(k, skip, v._max);
       s = s3obj.getObjectContent();
       ByteStreams.readFully(s, b);
-      assert v.is_persisted();
+      assert v.isPersisted();
       return b;
     } catch( IOException e ) { // Broken disk / short-file???
       System.err.println(e);
@@ -105,19 +105,19 @@ public abstract class PersistS3 {
   }
 
   // Store Value v to disk.
-  public static void file_store(Value v) {
+  public static void fileStore(Value v) {
     if( !v._key.home() ) return;
     // Never store arraylets on S3, instead we'll store the entire array.
     assert v._isArray==0;
     throw H2O.unimpl();
   }
 
-  static public void file_delete(Value v) {
-    assert !v.is_persisted(); // Upper layers already cleared out
+  static public void fileDelete(Value v) {
+    assert !v.isPersisted(); // Upper layers already cleared out
     throw H2O.unimpl();
   }
 
-  static public Value lazy_array_chunk( Key key ) {
+  static public Value lazyArrayChunk( Key key ) {
     Key arykey = ValueArray.getArrayKey(key);  // From the base file key
     long off = ValueArray.getChunkOffset(key); // The offset
     long size = getObjectMetadataForKey(arykey).getContentLength();

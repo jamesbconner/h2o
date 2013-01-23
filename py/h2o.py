@@ -795,10 +795,6 @@ class H2O(object):
             'link': 'familyDefault'
         }
 
-        # special case because of name issues
-        glm_notx = kwargs.pop('glm_-x', None)
-        if glm_notx is not None: params_dict['-x'] = glm_notx
-
         params_dict.update(kwargs)
         print "GLM params list", params_dict
 
@@ -813,15 +809,10 @@ class H2O(object):
     def GLM(self, key, timeoutSecs=300, retryDelaySecs=0.5, **kwargs):
         a = self.GLM_shared(key, timeoutSecs, retryDelaySecs, parentName="GLM", **kwargs)
 
-        # FIX! seems like GLMProgress doesn't exist yet?
         browseAlso = kwargs.get('browseAlso', False)
         if (browseAlso | browse_json):
-            # FIX! GLMProgress doesn't exist yet.
-            print "Redoing (in Parallel?) the GLM through the browser, no results saved though"
-            # find a match on the first. Swap in the 2nd to the url (as well as xlate to html)
-            # because we don't want to restart the GLM?
+            print "Redoing the GLM through the browser, no results saved though"
             h2b.browseJsonHistoryAsUrlLastMatch('GLM')
-            # wait so we can see it
             time.sleep(5)
         return a
 
@@ -831,7 +822,7 @@ class H2O(object):
 
         if kwargs.get('norm'):
             # don't have to pop, GLMGrid ignores
-            print "\nWARNING: norm param is ignored by GLMGrid. Always uses LASSO (L1+L2). Best per advisors"
+            print "\nWARNING: norm param is ignored by GLMGrid. Always uses LASSO (L1+L2)."
 
         # Check that the response has the right ParseProgress url it's going to steer us to.
         if a['response']['redirect_request']!='GLMGridProgress':
@@ -847,8 +838,33 @@ class H2O(object):
             time.sleep(5)
         return a
 
-    def stabilize(self, test_func, error,
-            timeoutSecs=10, retryDelaySecs=0.5):
+
+    # GLMScore params
+    # modelKey=__GLMModel_7a3a73c1-f272-4a2e-b37f-d2f371d304ba&
+    # key=cuse.hex&
+    # thresholds=0%3A1%3A0.01
+    def GLMScore(self, key, modelKey, timeoutSecs=100, **kwargs):
+        browseAlso = kwargs.pop('browseAlso',False)
+        params_dict = { 
+            'thresholds': 0.5,
+        }
+        params_dict.update(kwargs)
+        print "GLMScore params list", params_dict
+
+        a = self.__check_request(requests.get(
+            self.__url('GLMScore.json'),
+            timeout=timeoutSecs,
+            params=params_dict))
+        verboseprint(parentName, dump_json(a))
+
+        browseAlso = kwargs.get('browseAlso', False)
+        if (browseAlso | browse_json):
+            print "Redoing the GLMScore through the browser, no results saved though"
+            h2b.browseJsonHistoryAsUrlLastMatch('GLMScore')
+            time.sleep(5)
+        return a 
+
+    def stabilize(self, test_func, error, timeoutSecs=10, retryDelaySecs=0.5):
         '''Repeatedly test a function waiting for it to return True.
 
         Arguments:

@@ -327,7 +327,7 @@ public class ValueArray extends Iced {
   static public Key readPut(Key k, InputStream is) throws IOException {
     Futures fs = new Futures();
     k = readPut(k,is,fs);
-    fs.block_pending();
+    fs.blockForPending();
     return k;
   }
 

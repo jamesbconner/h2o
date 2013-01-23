@@ -16,10 +16,9 @@ def define_params():
         # 'norm': [None,'L1', 'L2'],
         # always need L1 or L2? to avoid Gram Matrix SPD
         'norm': ['L1', 'L2'],
-        'lambda1': [None, 1e-4,1,10,1e4],
-        'lambda2': [None, 1e-4,1,10,1e4],
+        'lambda': [None, 1e-4,1,10,1e4],
         'rho': [None, 1e-4,1,10,1e4],
-        'alpha': [None, -1,0,1.8],
+        'alpha': [None, 0,0.8,1],
         # new?
         'beta_eps': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],

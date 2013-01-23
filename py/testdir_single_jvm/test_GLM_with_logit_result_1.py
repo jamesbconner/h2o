@@ -119,8 +119,7 @@ class Basic(unittest.TestCase):
 
             y = colCount
             kwargs = {'y': y, 'norm': 'ELASTIC', 'max_iter': 60, 'case': 'NaN',
-                    'lambda1': 100000,
-                    'lambda2': 100000,
+                    'lambda': 100000,
                     'alpha': 1.0,
                     'rho': 1e3,
                     'weight': 1.0,

@@ -89,15 +89,6 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             y = colCount
-
-            # to add penalty, you use different things, depending on the norm
-            # from H2O java
-            # switch( _penalty ) {
-            # case NONE:    lambda = 0.0;              break;
-            # case L1:      lambda = _rho;             break;
-            # case L2:      lambda =        _lambda ;  break;
-            # case ELASTIC: lambda = _rho + _lambda2;  break;
-
             kwargs = {
                     'max_iter': 5, 
                     'case': 'NaN', 
@@ -109,9 +100,8 @@ class Basic(unittest.TestCase):
                     'xval': 0,
                     'beta_eps': 1e-4,
                     #***********
-                    'lambda1': '1e-3:1e3:1e1',
-                    'lambda2': '1e-3:1e3:1e1',
-                    'alpha': '1,1.4,1.8',
+                    'lambda': '1e-3:1e3:1e1',
+                    'alpha': '0,0.5,1',
                     # 'rho:': '1e-8:1e3:100',
                     'rho:': 1,
                     'thresholds': '0:1:0.2'

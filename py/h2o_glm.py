@@ -62,15 +62,26 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # FIX! this is a little ugly.. jira addresses issue: 
     # https://0xdata.atlassian.net/browse/HEX-451
     cList = []
+    # hopefully 0 is never a dropped column because I won't get it!
     if u'0' in coefficients:
         for c in range(len(coefficients)):
             if c!=y:
-                value = coefficients[unicode(c)]
+                # H2O will drop columns it things are constant
+                # assume non-existent means 0 ..print warning
+                if not unicode(c) in coefficients:
+                    value = 0
+                    print "Warning: didn't see", unicode(c), "in json coefficient response.",\
+                          "Assuming 0 due to constant column)"
+
+                else:
+                    value = coefficients[unicode(c)]
+
                 cList.append(value)
                 cstring = cstring + "%s: %.5e   " % (c, value)
             
     else:
         # instead, sort the keys? Get a list of tuple k/v pairs and sort
+        # No handling of dropped columns here. would be tough because I don't know the header name!
         items = coefficients.items()
         items.sort()
         for c, value in items:
@@ -112,10 +123,14 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # something is broken
     # intercept is in there too, but this will get it okay
     # just sum the abs value  up..look for greater than 0
-    s = 0.0
-    for c in coefficients:
-        v = coefficients[c]
-        s += abs(float(v))
+
+    # skip this test if there is just one coefficient. Maybe pointing to a non-important coeff?
+    if (len(coefficients)>1):
+        s = 0.0
+        for c in coefficients:
+            v = coefficients[c]
+            s += abs(float(v))
+
         self.assertGreater(s, 1e-18, (
             "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
             ))
@@ -173,8 +188,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
 #       "error_0": 1.0, 
 #       "error_1": 0.0, 
 #       "key": "__GLMModel_8b0fc26c-3a9c-4c4b-8cf6-240cc5b60508", 
-#       "lambda_1": 0.009999999999999998, 
-#       "lambda_2": 0.9999999999999999, 
+#       "lambda": 0.009999999999999998, 
 #       "rho": 1e-06
 #     }, 
     model0 = glmGridResult['models'][0]
@@ -185,8 +199,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
     key = model0['key']
     print "best GLM model key:", key
 
-    lambda_1 = model0['lambda_1']
-    lambda_2 = model0['lambda_2']
+    glm_lambda = model0['lambda']
     rho = model0['rho']
 
     # now indirect to the GLM result/model that's first in the list (best)

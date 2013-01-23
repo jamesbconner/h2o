@@ -50,7 +50,7 @@ public class TaskGetKey extends DTask {
     // narrow race on a moving K/V mapping tracking this Value just as it gets
     // deleted - in which case, simply retry for another Value.
     do  _val = H2O.get(k);      // The return result
-    while( _val != null && !_val.set_replica(sender) );
+    while( _val != null && !_val.setReplica(sender) );
     return this;
   }
   @Override public void compute() { throw H2O.unimpl(); }
@@ -78,6 +78,6 @@ public class TaskGetKey extends DTask {
 
   // Received an ACKACK; executes on the node sending the Value
   @Override public void onAckAck() {
-    if( _val != null ) _val.lower_active_gets(_h2o);
+    if( _val != null ) _val.lowerActiveGetCount(_h2o);
   }
 }

@@ -65,7 +65,7 @@ class Basic(unittest.TestCase):
             h2o_util.file_spaces_to_comma(csvPathname3, csvPathname4)
 
             kwargs = {'xval': 0, 'case': 'NaN', 'y': y, \
-                    'family': family, 'norm': 'NONE', 'rho': 10, 'lambda1': 1e4, 'link': 'familyDefault'}
+                    'family': family, 'norm': 'NONE', 'rho': 10, 'lambda': 1e4, 'link': 'familyDefault'}
             if x is not None:
                 kwargs['x'] = x
 

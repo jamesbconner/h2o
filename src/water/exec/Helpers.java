@@ -152,7 +152,7 @@ public class Helpers {
       DKV.put(key2, val, fs);
       // The metadata
       VABuilder b = new VABuilder(to.toString(),1).addDoubleColumn("0",what._const, what._const, what._const,0).createAndStore(to);
-      fs.block_pending();
+      fs.blockForPending();
     } else if (what._type == Result.Type.rtKey) {
       if( what.canShallowCopy() ) {
         throw H2O.unimpl();

@@ -15,7 +15,7 @@ public abstract class DKV {
   // This is a WEAK update: it is not strongly ordered with other updates
   static public Value put( Key key, Value val ) { return put(key,val,null); }
   static public Value put( Key key, Value val, Futures fs ) {
-    assert val==null || val.is_same_key(key);
+    assert val==null || val.isSameKey(key);
     while( true ) {
       Value old = H2O.get(key);
       Value res = DputIfMatch(key,val,old,fs);
@@ -39,7 +39,7 @@ public abstract class DKV {
     // First: I must block repeated remote PUTs to the same Key until all prior
     // ones complete - the home node needs to see these PUTs in order.
     // Repeated PUTs on the home node are already ordered.
-    if( old != null && !key.home() ) old.start_put();
+    if( old != null && !key.home() ) old.startRemotePut();
 
     // local update first, since this is a weak update
     Value res = H2O.putIfMatch(key,val,old);
@@ -61,7 +61,7 @@ public abstract class DKV {
     // If PUT is on     HOME, invalidate remote caches
     // If PUT is on non-HOME, replicate/push to HOME
     if( key.home() ) {          // On     HOME?
-      if( old != null ) old.lock_and_invalidate(H2O.SELF,fs);
+      if( old != null ) old.lockAndInvalidate(H2O.SELF,fs);
     } else {                    // On non-HOME?
       // Start a write, but do not block for it
       TaskPutKey.put(key.home_node(),key,val,fs);
@@ -87,7 +87,7 @@ public abstract class DKV {
       if( val != null ) {
         // See if we have enough data cached locally
         if( len > val._max ) len = val._max;
-        if( len == 0 || val._mem != null || val.is_persisted() )
+        if( len == 0 || val._mem != null || val.isPersisted() )
           return val; // Got it on local disk?  Then we must have it all
         // Got something, but not enough and not on local disk: need to read more
       }

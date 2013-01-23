@@ -23,7 +23,7 @@ public class TaskPutKey extends DTask {
   public TaskPutKey invoke( H2ONode sender ) {
     assert _key.home() || _val==null; // Only PUT to home for keys, or remote invalidation from home
     // Initialize Value for having a single known replica (the sender)
-    if( _val != null ) _val.init_replica_home(sender,_key);
+    if( _val != null ) _val.initReplicaHome(sender,_key);
 
     // Spin, until we update something.
     Value old = H2O.get(_key);
@@ -32,7 +32,7 @@ public class TaskPutKey extends DTask {
     // Invalidate remote caches.  Block, so that all invalidates are done
     // before we return to the remote caller.
     if( _key.home() && old != null )
-      old.lock_and_invalidate(sender,new Futures()).block_pending();
+      old.lockAndInvalidate(sender,new Futures()).blockForPending();
     // No return result
     _key = null;
     _val = null;
@@ -42,6 +42,6 @@ public class TaskPutKey extends DTask {
 
   // Received an ACK
   @Override public void onAck() {
-    if( _xval != null ) _xval.put_completes();
+    if( _xval != null ) _xval.completeRemotePut();
   }
 }

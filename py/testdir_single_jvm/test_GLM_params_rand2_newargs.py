@@ -12,26 +12,32 @@ import h2o_glm
 
 # some newer args for new port
 # made this a separate test, so the coarse failures don't impede other random testing
-def define_params():
-    paramDict = {
-        # FIX! no ranges on X 0:3
+def define_params(): 
+    paramDict = { # FIX! no ranges on X 0:3
         'x': [0,1,15,33],
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
-        'family': [None, 'gaussian', 'binomial'],
+        # FIX! does None default to anything? I guess binomial
+        'family': ['gaussian', 'binomial'],
         'xval': [2,3,4,9],
         'threshold': [0.1, 0.5, 0.7, 0.9],
         # 'norm': [None,'L1', 'L2'],
         # always need L1 or L2? to avoid Gram Matrix SPD
         'norm': ['L1', 'L2', 'ELASTIC'],
-        'lambda1': [None, 1e-8, 1e-4,1,10,1e4],
-        'lambda2': [None, 1e-8, 1e-4,1,10,1e4],
+        # 'lambda': [None, 1e-8, 1e-4,1,10,1e4],
+        # Update: None is a problem with 'fail to converge'
+        'lambda': [1e-8, 1e-4,1],
         'rho': [None, 1e-4,1,10,1e4],
-        # alpha must be between -1 and 1.8?
-        'alpha': [None, -1,0,1,1.8],
+        'alpha': [None, 0,0.2,0.8,1],
         'beta_eps': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
-        # inverse and log causing problems
-        'link': [None, 'logit','identity', 'log', 'inverse'],
+        # FIX! will n/a be like NaN and make covtype break?
+        # if caseMode=n/a the browser doesn't allow case?
+        # emulate that below..UPDATE: doesn't work for covtype, always need case
+        # Update: n/a can't be used with covtype
+        'caseMode': ['>','<','=','<=','>='],
+        # FIX! inverse and log were causing problems..add back in?
+        # 'link': [None, 'familyDefault', 'logit','identity', 'log', 'inverse'],
+        'link': [None, 'logit'],
         'max_iter': [None, 10],
         'weight': [None, 1, 2, 4],
         }
@@ -46,10 +52,11 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_loop_random_param_covtype(self):
+    def test_GLM_params_rand2_newargs(self):
         # csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         csvPathname = h2o.find_file('smalldata/covtype/covtype.20k.data')
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        key = 'covtype.20k'
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key=key)
 
         # for determinism, I guess we should spit out the seed?
         # random.seed(SEED)
@@ -69,20 +76,14 @@ class Basic(unittest.TestCase):
                 randomV = paramDict[randomKey]
                 randomValue = random.choice(randomV)
                 kwargs[randomKey] = randomValue
+                if (randomKey=='x'):
+                    colX = randomValue
 
-                if 1==1:
-                    if (randomKey=='x'):
-                        colX = randomValue
-                else:
-                    if (randomKey=='x'):
-                        # keep track of what column we're picking
-                        # don't track a column if we're using a range (range had a GLM bug, so have to test)
-                        # the shared check code knows to ignore colX if None, now.
-                        if ':' in randomValue:
-                            colX = None
-                        else:
-                            colX = randomValue
-
+            # if caseMode=n/a the browser doesn't allow case
+            # basically simplifies to always needing 'case" ..for covtype
+            if ('case' not in kwargs) or (kwargs['case'] is None):
+                kwargs['case'] = 1
+            
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
             # pass the kwargs with all the params, so we know what we asked for!

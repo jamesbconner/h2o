@@ -118,7 +118,7 @@ public class VABuilder {
     ValueArray v = create(k);
     Futures fs = new Futures();
     DKV.put(k, v.value(), fs);
-    fs.block_pending();
+    fs.blockForPending();
     return this;
   }
 
