@@ -167,9 +167,31 @@ public abstract class DRemoteTask extends DTask<DRemoteTask> implements Cloneabl
     getFutures().add(fs);
   }
 
-
   protected void reduceAlsoBlock( DRemoteTask drt ) {
     reduce(drt);
     alsoBlockFor(drt._fs);
+  }
+
+  // Misc
+
+  public static double[][] merge(double[][] a, double[][] b) {
+    double[][] res = new double[a.length + b.length][];
+    System.arraycopy(a, 0, res, 0, a.length);
+    System.arraycopy(b, 0, res, a.length, b.length);
+    return res;
+  }
+
+  public static int[] merge(int[] a, int[] b) {
+    int[] res = new int[a.length + b.length];
+    System.arraycopy(a, 0, res, 0, a.length);
+    System.arraycopy(b, 0, res, a.length, b.length);
+    return res;
+  }
+
+  public static String[] merge(String[] a, String[] b) {
+    String[] res = new String[a.length + b.length];
+    System.arraycopy(a, 0, res, 0, a.length);
+    System.arraycopy(b, 0, res, a.length, b.length);
+    return res;
   }
 }

@@ -5,12 +5,16 @@ import hex.KMeans;
 import java.util.Arrays;
 import java.util.Random;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.*;
 
 import water.*;
 
 public class KMeansTest extends TestUtil {
+
+  @BeforeClass
+  public static void stall() {
+    stall_till_cloudsize(3);
+  }
 
   @Test
   public void test1Dimension() {
@@ -21,6 +25,7 @@ public class KMeansTest extends TestUtil {
       ValueArray va = va_maker(source, //
           new double[] { 1.2, 5.6, 3.7, 0.6, 0.1, 2.6 });
 
+      KMeans.RAND_SEED = 8683452581122892189L;
       KMeans.run(target, va, 2, 1e-6, 0);
       KMeans.Res res = UKV.get(target, new KMeans.Res());
       double[][] clusters = res._clusters;
@@ -31,6 +36,7 @@ public class KMeansTest extends TestUtil {
       Assert.assertEquals(1.125, clusters[0][0], 0.000001);
       Assert.assertEquals(4.65, clusters[1][0], 0.000001);
     } finally {
+      KMeans.RAND_SEED = null;
       UKV.remove(source);
       UKV.remove(target);
     }
@@ -38,11 +44,15 @@ public class KMeansTest extends TestUtil {
 
   @Test
   public void testGaussian() {
+    testGaussian(10000);
+  }
+
+  public void testGaussian(int rows) {
     Key source = Key.make("datakey");
     Key target = Key.make("datakey.kmeans");
 
     try {
-      final int columns = 100, rows = 10000;
+      final int columns = 100;
       double[][] goals = new double[8][columns];
       double[][] array = gauss(columns, rows, goals);
       int[] cols = new int[columns];

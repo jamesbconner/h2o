@@ -23,4 +23,4 @@ nbproject/
 nbbuild.xml
 TAGS
 build.local.conf
-
+/AwsCredentials.properties

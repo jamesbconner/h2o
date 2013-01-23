@@ -18,20 +18,24 @@ import com.google.common.io.Closeables;
 /** Persistence backend for S3 */
 public abstract class PersistS3 {
   private static void log(String printf, Object... args) {
-    System.err.printf("[s3] "+printf+"\n", args);
+    System.err.printf("[s3] " + printf + "\n", args);
   }
 
   public static final AmazonS3 S3;
+  public static final String   HELP;
+
   // Default location of the S3 credentials file
-  private static final String DEFAULT_CREDENTIALS_LOCATION = "AwsCredentials.properties";
-  private static final String KEY_PREFIX = "s3:";
-  private static final int    KEY_PREFIX_LEN = KEY_PREFIX.length();
+  private static final String  DEFAULT_CREDENTIALS_LOCATION = "AwsCredentials.properties";
+  private static final String  KEY_PREFIX                   = "s3:";
+  private static final int     KEY_PREFIX_LEN               = KEY_PREFIX.length();
 
   // Reads the commandline and initializes the S3 client
-  public static void initialize() {}
+  public static void initialize() {
+  }
+
   static {
-    File credentials = new File( Objects.firstNonNull(
-        H2O.OPT_ARGS.aws_credentials, DEFAULT_CREDENTIALS_LOCATION));
+    HELP = "You can specify a credentials properties file with the -aws_credentials command line switch.";
+    File credentials = new File(Objects.firstNonNull(H2O.OPT_ARGS.aws_credentials, DEFAULT_CREDENTIALS_LOCATION));
     AmazonS3 s3 = null;
     try {
       s3 = new AmazonS3Client(new PropertiesCredentials(credentials));
@@ -39,10 +43,19 @@ public abstract class PersistS3 {
       e.printStackTrace();
       log("Unable to create S3 backend.");
       if( H2O.OPT_ARGS.aws_credentials == null )
-        log("You can specify a credentials properties file with the " +
-        		"-aws_credentials command line switch.");
+        log(HELP);
     }
     S3 = s3;
+  }
+
+  public static void checkCredentials() {
+    if( S3 == null ) {
+      StringBuilder msg = new StringBuilder();
+      msg.append("Unable to load S3 credentials.");
+      if( H2O.OPT_ARGS.aws_credentials == null )
+        msg.append(HELP);
+      throw new IllegalArgumentException(msg.toString());
+    }
   }
 
   public static Key loadKey(S3ObjectSummary obj) throws IOException {
@@ -53,17 +66,17 @@ public abstract class PersistS3 {
       S3Object s3obj = getObjectForKey(k, 0, ValueArray.CHUNK_SZ);
       S3ObjectInputStream is = s3obj.getObjectContent();
 
-      int sz = (int)Math.min(ValueArray.CHUNK_SZ, size);
+      int sz = (int) Math.min(ValueArray.CHUNK_SZ, size);
       byte[] mem = MemoryManager.malloc1(sz);
       ByteStreams.readFully(is, mem);
       ValueArray ary = new ValueArray(k, sz, Value.S3).read(new AutoBuffer(mem));
-      ary._persist = Value.S3|Value.ON_dsk;
+      ary._persist = Value.S3 | Value.ON_dsk;
       val = ary.value();
-    } else if( size >= 2*ValueArray.CHUNK_SZ ) {
+    } else if( size >= 2 * ValueArray.CHUNK_SZ ) {
       // ValueArray byte wrapper over a large file
-      val = new ValueArray(k,size,Value.S3).value();
+      val = new ValueArray(k, size, Value.S3).value();
     } else {
-      val = new Value(k,(int)size,Value.S3); // Plain Value
+      val = new Value(k, (int) size, Value.S3); // Plain Value
     }
     val.setdsk();
     DKV.put(k, val);
@@ -72,8 +85,8 @@ public abstract class PersistS3 {
 
   // file implementation -------------------------------------------------------
 
-  // Read up to 'len' bytes of Value.  Value should already be persisted to
-  // disk.  A racing delete can trigger a failure where we get a null return,
+  // Read up to 'len' bytes of Value. Value should already be persisted to
+  // disk. A racing delete can trigger a failure where we get a null return,
   // but no crash (although one could argue that a racing load&delete is a bug
   // no matter what).
   public static byte[] fileLoad(Value v) {
@@ -85,9 +98,10 @@ public abstract class PersistS3 {
       // Convert an arraylet chunk into a long-offset from the base file.
       if( k._kb[0] == Key.ARRAYLET_CHUNK ) {
         skip = ValueArray.getChunkOffset(k); // The offset
-        k = ValueArray.getArrayKey(k);       // From the base file key
+        k = ValueArray.getArrayKey(k); // From the base file key
         if( k.toString().endsWith(".hex") ) { // Hex file?
-          int value_len = DKV.get(k).get().length;  // How long is the ValueArray header?
+          int value_len = DKV.get(k).get().length; // How long is the ValueArray
+                                                   // header?
           skip += value_len;
         }
       }
@@ -106,10 +120,13 @@ public abstract class PersistS3 {
 
   // Store Value v to disk.
   public static void fileStore(Value v) {
-    if( !v._key.home() ) return;
+    if( !v._key.home() )
+      return;
     // Never store arraylets on S3, instead we'll store the entire array.
-    assert v._isArray==0;
-    throw H2O.unimpl();
+    assert v._isArray == 0;
+
+    Key dest = MultipartUpload.init(v);
+    MultipartUpload.run(dest, v, null, null);
   }
 
   static public void fileDelete(Value v) {
@@ -117,44 +134,51 @@ public abstract class PersistS3 {
     throw H2O.unimpl();
   }
 
-  static public Value lazyArrayChunk( Key key ) {
-    Key arykey = ValueArray.getArrayKey(key);  // From the base file key
+  static public Value lazyArrayChunk(Key key) {
+    Key arykey = ValueArray.getArrayKey(key); // From the base file key
     long off = ValueArray.getChunkOffset(key); // The offset
     long size = getObjectMetadataForKey(arykey).getContentLength();
 
-    long rem = size-off;        // Remainder to be read
+    long rem = size - off; // Remainder to be read
     if( arykey.toString().endsWith(".hex") ) { // Hex file?
-      int value_len = DKV.get(arykey).get().length;  // How long is the ValueArray header?
+      int value_len = DKV.get(arykey).get().length; // How long is the
+                                                    // ValueArray header?
       rem -= value_len;
     }
     // the last chunk can be fat, so it got packed into the earlier chunk
-    if( rem < ValueArray.CHUNK_SZ && off > 0 ) return null;
-    int sz = (rem >= ValueArray.CHUNK_SZ*2) ? (int)ValueArray.CHUNK_SZ : (int)rem;
+    if( rem < ValueArray.CHUNK_SZ && off > 0 )
+      return null;
+    int sz = (rem >= ValueArray.CHUNK_SZ * 2) ? (int) ValueArray.CHUNK_SZ : (int) rem;
     Value val = new Value(key, sz, Value.S3);
     val.setdsk(); // But its already on disk.
     return val;
   }
 
+  /**
+   * Creates the key for given S3 bucket and key.
+   *
+   * Returns the H2O key, or null if the key cannot be created.
+   *
+   * @param bucket
+   *          Bucket name
+   * @param key
+   *          Key name (S3)
+   * @return H2O key pointing to the given bucket and key.
+   */
+  public static Key encodeKey(String bucket, String key) {
+    Key res = encodeKeyImpl(bucket, key);
+    assert checkBijection(res, bucket, key);
+    return res;
+  }
 
-  /** Creates the key for given S3 bucket and key.
-  *
-  * Returns the H2O key, or null if the key cannot be created.
-  *
-  * @param bucket Bucket name
-  * @param key Key name (S3)
-  * @return H2O key pointing to the given bucket and key.
-  */
- public static Key encodeKey(String bucket, String key) {
-   Key res = encodeKeyImpl(bucket, key);
-   assert checkBijection(res, bucket, key);
-   return res;
- }
-  /** Decodes the given H2O key to the S3 bucket and key name.
+  /**
+   * Decodes the given H2O key to the S3 bucket and key name.
    *
    * Returns the array of two strings, first one is the bucket name and second
    * one is the key name.
    *
-   * @param k Key to be decoded.
+   * @param k
+   *          Key to be decoded.
    * @return Pair (array) of bucket name and key name.
    */
   public static String[] decodeKey(Key k) {
@@ -166,33 +190,24 @@ public abstract class PersistS3 {
   private static boolean checkBijection(Key k, String bucket, String key) {
     Key en = encodeKeyImpl(bucket, key);
     String[] de = decodeKeyImpl(k);
-    boolean res = Arrays.equals(k._kb, en._kb)
-        && bucket.equals(de[0])
-        && key.equals(de[1]);
-    assert res : "Bijection failure:" +
-        "\n\tKey 1:"+k+
-        "\n\tKey 2:"+en+
-        "\n\tBkt 1:"+bucket+
-        "\n\tBkt 2:"+de[0]+
-        "\n\tStr 1:"+key+
-        "\n\tStr 2:"+de[1]+
-        "";
+    boolean res = Arrays.equals(k._kb, en._kb) && bucket.equals(de[0]) && key.equals(de[1]);
+    assert res : "Bijection failure:" + "\n\tKey 1:" + k + "\n\tKey 2:" + en + "\n\tBkt 1:" + bucket + "\n\tBkt 2:"
+        + de[0] + "\n\tStr 1:" + key + "\n\tStr 2:" + de[1] + "";
     return res;
   }
 
   private static Key encodeKeyImpl(String bucket, String key) {
-    return Key.make(KEY_PREFIX+bucket+'/'+key);
+    return Key.make(KEY_PREFIX + bucket + '/' + key);
   }
 
   private static String[] decodeKeyImpl(Key k) {
     String s = new String(k._kb);
-    assert s.startsWith(KEY_PREFIX) && s.indexOf('/') >= 0
-        : "Attempting to decode non s3 key: " + k;
+    assert s.startsWith(KEY_PREFIX) && s.indexOf('/') >= 0 : "Attempting to decode non s3 key: " + k;
     s = s.substring(KEY_PREFIX_LEN);
     int dlm = s.indexOf('/');
-    String bucket = s.substring(0,dlm);
-    String key = s.substring(dlm+1);
-    return new String[] {bucket,key};
+    String bucket = s.substring(0, dlm);
+    String key = s.substring(dlm + 1);
+    return new String[] { bucket, key };
   }
 
   // Gets the S3 object associated with the key that can read length bytes from
@@ -201,7 +216,7 @@ public abstract class PersistS3 {
     try {
       String[] bk = decodeKey(k);
       GetObjectRequest r = new GetObjectRequest(bk[0], bk[1]);
-      r.setRange(offset, offset+length);
+      r.setRange(offset, offset + length);
       return S3.getObject(r);
     } catch( AmazonClientException e ) {
       return null;

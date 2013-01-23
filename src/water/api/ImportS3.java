@@ -2,7 +2,8 @@ package water.api;
 
 import java.io.IOException;
 
-import water.*;
+import water.DKV;
+import water.Key;
 import water.store.s3.PersistS3;
 
 import com.amazonaws.services.s3.model.S3ObjectSummary;
@@ -14,33 +15,30 @@ public class ImportS3 extends Request {
       super(TypeaheadS3BucketRequest.class, name, true);
     }
 
-    @Override protected String parse(String input) throws IllegalArgumentException {
-      if( PersistS3.S3 == null ) {
-        StringBuilder msg = new StringBuilder();
-        msg.append("Unable to load S3 credentials.");
-        if( H2O.OPT_ARGS.aws_credentials == null ) {
-          msg.append("\nYou can specify a credentials file with the");
-          msg.append(" -aws_credentials command line switch.");
-        }
-        throw new IllegalArgumentException(msg.toString());
-      }
-
+    @Override
+    protected String parse(String input) throws IllegalArgumentException {
+      PersistS3.checkCredentials();
       if( !PersistS3.S3.doesBucketExist(input) )
-        throw new IllegalArgumentException("S3 Bucket "+input+" not found!");
+        throw new IllegalArgumentException("S3 Bucket " + input + " not found!");
       return input;
     }
 
-    @Override protected String queryDescription() {
+    @Override
+    protected String queryDescription() {
       return "existing S3 Bucket";
     }
-    @Override protected String defaultValue() { return null; }
+
+    @Override
+    protected String defaultValue() {
+      return null;
+    }
   }
 
   protected final BucketArg _bucket = new BucketArg(BUCKET);
 
   public ImportS3() {
-    _requestHelp = "Imports the given Amazon S3 Bucket.  All nodes in the " +
-        "cloud must have permission to access the Amazon bucket.";
+    _requestHelp = "Imports the given Amazon S3 Bucket.  All nodes in the "
+        + "cloud must have permission to access the Amazon bucket.";
     _bucket._requestHelp = "Amazon S3 Bucket to import.";
   }
 
@@ -67,7 +65,7 @@ public class ImportS3 extends Request {
     DKV.write_barrier();
 
     Response r = Response.done(json);
-    r.setBuilder(SUCCEEDED+"."+KEY, new KeyCellBuilder());
+    r.setBuilder(SUCCEEDED + "." + KEY, new KeyCellBuilder());
     return r;
   }
 }

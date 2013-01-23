@@ -46,7 +46,7 @@ def runKMeansOnly(node=None,parseKey=None,
     if not parseKey: raise Exception('No parsed key for KMeans specified')
     if not node: node = h2o.nodes[0]
     print parseKey['destination_key']
-    return node.kmeans(parseKey['destination_key'], timeoutSecs, retryDelaySecs, **kwargs)
+    return node.kmeans(parseKey['destination_key'], None, timeoutSecs, retryDelaySecs, **kwargs)
 
 def runGLM(node=None,csvPathname=None,key=None,
         timeoutSecs=20,retryDelaySecs=2,**kwargs):
