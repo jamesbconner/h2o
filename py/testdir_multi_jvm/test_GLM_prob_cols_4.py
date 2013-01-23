@@ -52,7 +52,7 @@ paramDict = {
     'thresholds': [0.5],
     'xval': [2],
     'expand_cat': [0],
-    'beta_eps': [1.0E-4],
+    'beta_epsilon': [1.0E-4],
     }
 
 class test_GLM_prob_cols_4(unittest.TestCase):

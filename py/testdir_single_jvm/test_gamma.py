@@ -19,7 +19,7 @@ def define_params():
         # 0 is L2. 1 is L1. Inbetween is Elastic
         'alpha': [None, 0,0.5, 1],
         # coefficient precision
-        'beta_eps': [None, 0.0001],
+        'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # inverse and log causing problems
         # 'link': [None, 'logit','identity', 'log', 'inverse'],

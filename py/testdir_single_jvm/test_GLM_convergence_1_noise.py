@@ -104,7 +104,7 @@ class Basic(unittest.TestCase):
                     'weight': 1.0,
                     'link': 'familyDefault',
                     'xval': 2,
-                    'beta_eps': 1e-4,
+                    'beta_epsilon': 1e-4,
                     'thresholds': '0.5',
                     }
 

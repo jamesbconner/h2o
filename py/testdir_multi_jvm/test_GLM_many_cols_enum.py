@@ -46,7 +46,7 @@ paramDict = {
     'thresholds': [0.5],
     'xval': [2],
     'expand_cat': [1],
-    'beta_eps': [1.0E-4],
+    'beta_epsilon': [1.0E-4],
     }
 
 class Basic(unittest.TestCase):

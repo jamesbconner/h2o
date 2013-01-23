@@ -17,7 +17,7 @@ def define_params():
         'penalty': [None, 0, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.3,1],
         # new?
-        'beta_eps': [None, 0.0001],
+        'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # inverse and log causing problems
         # 'link': [None, 'logit','identity', 'log', 'inverse'],

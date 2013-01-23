@@ -15,7 +15,7 @@ def define_params():
         # 'link': [familyDefault],
         'xval': [1],
         'expand_cat': [1],
-        'beta_eps': [1.0E-4],
+        'beta_epsilon': [1.0E-4],
         }
     return paramDict
 

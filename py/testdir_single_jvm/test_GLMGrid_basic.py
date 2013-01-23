@@ -82,7 +82,7 @@ class Basic(unittest.TestCase):
         # FIX! have to update other GLMGrid tests
         kwargs = {
             'x': x, 'y':  y, 'xval': 2, 
-            'beta_eps': 1e-4,
+            'beta_epsilon': 1e-4,
             'penalty': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
             'thresholds': '0:1:0.01'
