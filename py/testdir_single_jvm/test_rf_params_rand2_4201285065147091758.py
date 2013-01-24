@@ -57,7 +57,7 @@ class Basic(unittest.TestCase):
                 kwargs[randomKey] = randomValue
 
             print kwargs
-            h2o_cmd.runRF(timeoutSecs=70, csvPathname=csvPathname, **kwargs)
+            h2o_cmd.runRF(timeoutSecs=120, csvPathname=csvPathname, **kwargs)
             print "Trial #", trial, "completed"
 
 if __name__ == '__main__':
