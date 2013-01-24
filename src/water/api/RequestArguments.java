@@ -1474,7 +1474,6 @@ public class RequestArguments extends RequestStatics {
   // ---------------------------------------------------------------------------
 
   public class H2OHexKey extends TypeaheadInputText<ValueArray> {
-
     public final Key _defaultKey;
 
     public H2OHexKey(String name) {
@@ -1485,7 +1484,6 @@ public class RequestArguments extends RequestStatics {
     public H2OHexKey(String name, String keyName) {
       this(name, Key.make(keyName));
     }
-
 
     public H2OHexKey(String name, Key key) {
       super(TypeaheadHexKeyRequest.class, name, false);
@@ -1519,7 +1517,6 @@ public class RequestArguments extends RequestStatics {
   }
 
   public class H2OGLMModelKey extends TypeaheadInputText<GLMModel> {
-
     public final Key _defaultKey;
 
     public H2OGLMModelKey(String name, boolean req) {
@@ -1528,7 +1525,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected GLMModel parse(String input) throws IllegalArgumentException {
-      if(!input.startsWith(GLMModel.KEY_PREFIX))
+      if( !input.startsWith(GLMModel.KEY_PREFIX) )
         throw new IllegalArgumentException("Key "+input+" is not a GLMModel key");
       Key k = Key.make(input);
       Value v = DKV.get(k);
@@ -1542,7 +1539,7 @@ public class RequestArguments extends RequestStatics {
     }
 
     @Override protected String queryDescription() {
-      return "an existing H2O HEX key";
+      return "an existing H2O GLM Model key";
     }
 
     @Override
