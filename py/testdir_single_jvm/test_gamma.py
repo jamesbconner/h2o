@@ -15,7 +15,7 @@ def define_params():
         # 'x_value': [2,3,4,9],
         'x_value': [0],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'penalty': [None, 1e-4],
+        'lambda': [None, 1e-4],
         # 0 is L2. 1 is L1. Inbetween is Elastic
         'alpha': [None, 0,0.5, 1],
         # coefficient precision

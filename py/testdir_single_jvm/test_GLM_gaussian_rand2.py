@@ -10,7 +10,7 @@ def define_params():
         'family': ['gaussian'],
         'x_value': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'penalty': [None, 1e-8, 1e-4,1,10,1e4],
+        'lambda': [None, 1e-8, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.5,1],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
@@ -51,7 +51,7 @@ class Basic(unittest.TestCase):
             # with a different choice. we need the x_value to get the error details 
             # in the json(below)
             # always do gaussian!
-            kwargs = {'y': 54, 'x_value': 3, 'family': "gaussian", 'penalty': 1e-4, 'case': 1}
+            kwargs = {'y': 54, 'x_value': 3, 'family': "gaussian", 'lambda': 1e-4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

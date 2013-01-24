@@ -175,7 +175,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
 #       "error_0": 1.0, 
 #       "error_1": 0.0, 
 #       "key": "__GLMModel_8b0fc26c-3a9c-4c4b-8cf6-240cc5b60508", 
-#       "penalty": 0.009999999999999998, 
+#       "lambda": 0.009999999999999998, 
 #     }, 
     model0 = glmGridResult['models'][0]
     alpha = model0['alpha']
@@ -185,7 +185,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
     key = model0['key']
     print "best GLM model key:", key
 
-    glm_penalty = model0['penalty']
+    glm_lambda = model0['lambda']
 
     # now indirect to the GLM result/model that's first in the list (best)
     inspectGLM = h2o_cmd.runInspect(None, key)

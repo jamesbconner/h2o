@@ -20,7 +20,7 @@ class Basic(unittest.TestCase):
             'case': 1, 
             'case_mode': '=', 
             'alpha': 0.5, 
-            'penalty': 1e1,
+            'lambda': 1e1,
             'max_iter': 15,
             'x_value': 2,
             }

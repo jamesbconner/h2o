@@ -39,7 +39,7 @@ class Basic(unittest.TestCase):
         
         kwargs = {
             'x': x, 'y':  y, 'x_value': 2, 
-            'penalty': '1e-8:1e3:100', 
+            'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
             'thresholds': '0:1:0.01'
             }
@@ -83,7 +83,7 @@ class Basic(unittest.TestCase):
         kwargs = {
             'x': x, 'y':  y, 'x_value': 2, 
             'beta_epsilon': 1e-4,
-            'penalty': '1e-8:1e3:100', 
+            'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
             'thresholds': '0:1:0.01'
             }

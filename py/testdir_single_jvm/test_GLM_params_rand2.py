@@ -13,7 +13,7 @@ def define_params():
         'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'x_value': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'penalty': [None, 0,1e-4,1,10,1e4],
+        'lambda': [None, 0,1e-4,1,10,1e4],
         'alpha': [None, 0,0.8,1],
         # new?
         'beta_epsilon': [None, 0.0001],

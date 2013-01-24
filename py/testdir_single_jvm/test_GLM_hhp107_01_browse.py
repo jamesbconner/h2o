@@ -22,7 +22,7 @@ argcaseList = [
         'y': 107,
         'case': 1,
         'family': 'gaussian',
-        'penalty': 1.0E-5,
+        'lambda': 1.0E-5,
         'max_iter': 50,
         'weight': 1.0,
         'thresholds': 0.5,
@@ -39,7 +39,7 @@ class Basic(unittest.TestCase):
         global local_host
         local_host = not 'hosts' in os.getcwd()
         if (local_host):
-            h2o.build_cloud(1,java_heap_GB=7)
+            h2o.build_cloud(1,java_heap_GB=1)
         else:
             h2o_hosts.build_cloud_with_hosts()
 
