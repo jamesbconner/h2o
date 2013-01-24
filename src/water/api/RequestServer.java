@@ -75,6 +75,7 @@ public class RequestServer extends NanoHTTPD {
     registerRequest(new TypeaheadHexKeyRequest());
     registerRequest(new TypeaheadKeysRequest());
     registerRequest(new TypeaheadModelRequest());
+    registerRequest(new TypeaheadGLMModelKeyRequest());
     registerRequest(new TypeaheadS3BucketRequest());
     registerRequest(new WWWFileUpload());
 
