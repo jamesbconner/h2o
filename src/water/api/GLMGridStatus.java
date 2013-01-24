@@ -77,9 +77,9 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
     for( int l1=1; l1<= _lambdas.length; l1++ )
           for( int a=0; a<_alphas.length; a++) {
             if( _stop ) break OUTER;
-            m = do_task(m,_lambdas.length-l1,a); // Do a step; get a model
+            GLMModel m2 = do_task(m,_lambdas.length-l1,a); // Do a step; get a model
             // Now update this Status.
-            update(_taskey,m,(_lambdas.length-l1)*N+a);
+            update(_taskey,m2,(_lambdas.length-l1)*N+a);
             // Fetch over the 'this' all new bits.  Mostly witness updates to
             // _progress and _stop fields.
             UKV.get(_taskey,this);

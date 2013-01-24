@@ -1,5 +1,6 @@
 package hex;
 
+import hex.LSMSolver.LSMSolverException;
 import hex.RowVecTask.Sampling;
 
 import java.util.*;
@@ -351,6 +352,12 @@ public class GLMSolver {
       return new GLMModel(this);
     }
 
+    private boolean _converged = false;
+
+    public boolean converged() {
+      return _converged;
+    }
+
     public void compute(){
       // check if response variable is within range
       if(_glmParams._f == Family.binomial){
@@ -366,7 +373,7 @@ public class GLMSolver {
       GramMatrixTask gtask = null;
       ArrayList<String> warns = new ArrayList();
       long t1 = System.currentTimeMillis();
-      OUTER:
+
       while(++_iterations < _glmParams._maxIter ) {
         // Compute the Gram Matrix
         assert !hasNaNsOrInfs(_beta);
@@ -377,36 +384,23 @@ public class GLMSolver {
         Matrix xy = gtask._gram.getXY();
 
         // Gram is broken?  Raise lambda penalty and try again
-        if( gtask._gram.hasNaNsOrInfs() ) {
-          _solver._lambda = (_solver._lambda == 0)?1e-8:_solver._lambda*10;
-          _beta = new double[_beta.length];
-          warns.add("Gram has Infs or NaNs.  Bumping lambda to "+_solver._lambda+" and solving again");
-          continue;
+        if( gtask._gram.hasNaNsOrInfs() ){
+          warns.add("Stopping at iteration " + _iterations + ". Gram has Infs or NaNs.");
+          break;
         }
-
         // Solve the equation with the given Gram matrix.
         // Run up to twenty iterations of bumping _rho to solve SPD issues
         double [] beta = null;
-        for( int i = 0; i < 20; ++i) {
-          try {
-            beta = _solver.solve(xx,xy);
-            if( !hasNaNsOrInfs(beta) ) // Clean set of betas?
-              break;                   // Consider it a solution
-            beta = null;               // No solution
-          } catch( RuntimeException e ) {
-            if( !e.getMessage().equals("Matrix is not symmetric positive definite.") )
-              throw e;
-          }
-          // If SPD matrix, add more rho and go again.
-          _solver._rho = (_solver._rho == 0)?1e-8:10*_solver._rho;
-        }
-
-        if( beta == null ) {
-          warns.add("Unable to solve!");
-          gtask = null;
+        try {
+          beta = _solver.solve(xx,xy);
+        } catch(LSMSolverException e) {
+          warns.add("Stopping at iteration " + _iterations + ". " + e.getMessage());
           break;
         }
-
+        if(hasNaNsOrInfs(beta)) { // Clean set of betas?
+          warns.add("Stopping at iteration " + _iterations + ". Beta has Infs or NaNs.");
+          break;                   // Consider it a solution
+        }
         // Compute max change in coef's from last iteration to this one,
         // and exit if nothing has changed more than _betaEps
         double diff = 0.0;
@@ -414,11 +408,13 @@ public class GLMSolver {
           diff = Math.max(diff, Math.abs(beta[i] - _beta[i]));
         _beta = beta;
         _time = System.currentTimeMillis() - t1;
-        if(diff < _glmParams._betaEps)
+        if(diff < _glmParams._betaEps) {
+          _converged = true;
           break;
+        }
       }
       if(_iterations == _glmParams._maxIter)
-        warns.add("Reached max # iterations!");
+        warns.add("Reached max # of iterations!");
       _beta = (gtask != null)?gtask._beta:null;
       _isDone = true;
       if(!warns.isEmpty())
