@@ -55,7 +55,6 @@ class Basic(unittest.TestCase):
             (10000, 400, 'cG', 300), 
             (10000, 500, 'cH', 300), 
             (10000, 1000, 'cI', 300), 
-            (10000, 3000, 'cJ', 300), # 120 secs?
             ]
 
         ### h2b.browseTheCloud()
