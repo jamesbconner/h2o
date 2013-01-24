@@ -214,7 +214,7 @@ public class GLMSolver {
     public int _iterations;
     public long _time;
     public LSMSolver _solver;
-    String [] _colNames;
+    public String [] _colNames;
     int [] _colIds;
     int [] _colOffsets;
     int [] _categoricals;
@@ -231,13 +231,19 @@ public class GLMSolver {
     public static final String KEY_PREFIX = "__GLMModel_";
 
     public boolean isCompatible(ValueArray ary, int [] colIds){
-      if(colIds == null)colIds = new int [_colNames.length];
-      int idx = 0;
-        for(int j = 0; j < _colNames.length; ++j)
-          for(int i = 0; i < ary._cols.length; ++i)
-            if(ary._cols[i]._name.equals(_colNames[j]))
-              colIds[idx++] = i;
-      return idx == colIds.length;
+      if( colIds == null ) colIds = new int [_colNames.length];
+      else assert colIds.length == _colNames.length;
+      for(int j = 0; j < _colNames.length; ++j) {
+        colIds[j] = -1;
+        for(int i = 0; i < ary._cols.length; ++i) {
+          if(ary._cols[i]._name.equals(_colNames[j])) {
+            colIds[j] = i;
+            break;
+          }
+        }
+        if( colIds[j] == -1 ) return false;
+      }
+      return true;
     }
 
     public double [] beta() {

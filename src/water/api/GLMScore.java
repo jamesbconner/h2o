@@ -34,6 +34,16 @@ public class GLMScore extends Request {
         _thresholds._hideInQuery =true;
       }
     }
+    if( arg == _dataKey ) {     // Check for dataset compatibility
+      ValueArray va = _dataKey.value();
+      GLMModel model = _modelKey.value();
+      int colIds[] = new int[model._colNames.length];
+      if( !model.isCompatible(va,colIds) ) {
+        for( int i=0; i<model._colNames.length; i++ )
+          if( colIds[i] == -1 )
+            throw new IllegalArgumentException("Incompatible dataset: "+va._key+" does not have column '"+model._colNames[i]+"'");
+      }
+    }
   };
 
   public static String link(Key k, double threshold, String content) {
