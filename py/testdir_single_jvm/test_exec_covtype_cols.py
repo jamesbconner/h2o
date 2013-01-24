@@ -31,15 +31,13 @@ class Basic(unittest.TestCase):
         ### h2b.browseTheCloud()
         start = time.time()
         # passes with suffix, fails without?
+        # suffix = ""
         suffix = ".hex"
-        suffix = ""
+        print "Using .hex suffix everywhere until we get type checking in H2O..fails with first size=1 otherwise"
         for i in range(54):
-            if i==2:
-                print "Skipping column 2 because it fails (it's the first size=1)"
-            else:
-                execExpr = "Result" + str(i) + suffix + " = c.hex[" + str(i) + "]"
-                print "execExpr:", execExpr
-                h2e.exec_expr(h2o.nodes[0], execExpr, resultKey="Result" + str(i) + suffix, timeoutSecs=4)
+            execExpr = "Result" + str(i) + suffix + " = c.hex[" + str(i) + "]"
+            print "execExpr:", execExpr
+            h2e.exec_expr(h2o.nodes[0], execExpr, resultKey="Result" + str(i) + suffix, timeoutSecs=4)
 
         if (h2o.check_sandbox_for_errors()):
             raise Exception("Found errors in sandbox stdout or stderr, on trial #%s." % trial)

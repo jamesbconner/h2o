@@ -11,9 +11,9 @@ print "Temporarily not using binLimit=1 to 4"
 paramDict = {
     'response_variable': [None,54],
     'class_weights': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2'],
-    'ntree': [1,3,7,23],
+    'ntree': [1,3,7,19],
     'model_key': ['model_keyA', '012345', '__hello'],
-    'OOBEE': ['None', 'true', 'false'],
+    'out_of_bag_error_estimate': [None,0,1],
     'gini': [None, 0, 1],
     'depth': [None, 1,10,20,100],
     'bin_limit': [None,5,10,100,1000],
@@ -68,7 +68,8 @@ class Basic(unittest.TestCase):
 
             print kwargs
             
-            h2o_cmd.runRF(timeoutSecs=70, csvPathname=csvPathname, **kwargs)
+            # 70 secs is definitely not enough for 23 trees. backed down to 19 and more time
+            h2o_cmd.runRF(timeoutSecs=120, csvPathname=csvPathname, **kwargs)
 
             print "Trial #", trial, "completed"
 

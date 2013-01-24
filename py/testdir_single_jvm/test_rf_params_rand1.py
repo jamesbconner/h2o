@@ -18,7 +18,7 @@ paramDict = {
     'class_weights': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2','8=2'],
     'ntree': [None,1,10,100],
     'model_key': ['model_keyA', '012345', '__hello'],
-    'OOBEE': ['None', 'true', 'false'],
+    'out_of_bag_error_estimate': [None,0,1],
     'gini': [None, 0, 1],
     'depth': [None, 1,10,20,100],
     'bin_limit': [None,4,5,10,100,1000],

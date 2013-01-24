@@ -733,7 +733,7 @@ class H2O(object):
         params_dict = {
             'data_key': data_key,
             'model_key': model_key,
-            'OOBEE': None,
+            'out_of_bag_error_estimate': None,
             'class_weights': None,
             'response_variable': None, # FIX! apparently this is needed now?
             }
