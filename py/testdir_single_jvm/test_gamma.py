@@ -15,12 +15,13 @@ def define_params():
         # 'xval': [2,3,4,9],
         'xval': [0],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 1e-4],
+        'lambda': [1e-4],
         # 0 is L2. 1 is L1. Inbetween is Elastic
-        'alpha': [None, 0,0.5, 1],
+        'alpha': [0,0.5, 1],
         # coefficient precision
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
+        'case_mode': ['>','<','=','<=','>='],
         # inverse and log causing problems
         # 'link': [None, 'logit','identity', 'log', 'inverse'],
         # 'link': [None, 'logit','identity'],
@@ -61,7 +62,7 @@ class Basic(unittest.TestCase):
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details
             # in the json(below)
-            kwargs = {'y': 54, 'case': 1, 'max_iter': 6}
+            kwargs = {'y': 54, 'alpha': 0, 'lambda': 0, 'case_mode': '=', 'case': 1, 'max_iter': 6}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -69,18 +70,8 @@ class Basic(unittest.TestCase):
                 randomValue = random.choice(randomV)
                 kwargs[randomKey] = randomValue
 
-                if 1==1:
-                    if (randomKey=='x'):
-                        colX = randomValue
-                else:
-                    if (randomKey=='x'):
-                        # keep track of what column we're picking
-                        # don't track a column if we're using a range (range had a GLM bug, so have to test)
-                        # the shared check code knows to ignore colX if None, now.
-                        if ':' in randomValue:
-                            colX = None
-                        else:
-                            colX = randomValue
+                if (randomKey=='x'):
+                    colX = randomValue
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
