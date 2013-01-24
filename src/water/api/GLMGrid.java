@@ -3,6 +3,8 @@ package water.api;
 import hex.*;
 import hex.GLMSolver.*;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.*;
 
 import water.*;
@@ -55,6 +57,9 @@ public class GLMGrid extends Request {
   protected final RSeq _lambda = new RSeq(Constants.LAMBDA, false, new NumberSequence("1e-8:1e3:100",true,10),true);
   protected final RSeq _alpha = new RSeq(Constants.ALPHA, false, new NumberSequence("0,0.25,0.5,0.75,1.0",false,1),false);
   protected final RSeq _thresholds = new RSeq(Constants.DTHRESHOLDS, false,new NumberSequence("0:1:0.01",false,0.1),false);
+
+
+
 
   @Override protected void queryArgumentValueSet(Argument arg, Properties inputArgs) {
     if(arg == _caseMode){
@@ -125,6 +130,22 @@ public class GLMGrid extends Request {
     rs.replace("key_param", KEY);
     rs.replace("key", k.toString());
     rs.replace("content", content);
+    return rs.toString();
+  }
+
+  public static String link(GLMModel m, String content) {
+    RString rs = new RString("<a href='GLMGrid.query?%key_param=%$key&y=%ycol&x=%xcols&caseMode=%caseMode&case=%case'>%content</a>");
+    rs.replace("key_param", KEY);
+    rs.replace("key", m._dataset.toString());
+    rs.replace("content", content);
+    rs.replace("ycol",m.ycolName());
+    rs.replace("case",m._glmParams._caseVal);
+    try {
+      rs.replace("xcols",URLEncoder.encode(m.xcolNames(),"utf8"));
+      rs.replace("caseMode",URLEncoder.encode(m._glmParams._caseMode.toString(),"utf8"));
+    } catch( UnsupportedEncodingException e ) {
+      throw new RuntimeException(e);
+    }
     return rs.toString();
   }
 }

@@ -374,7 +374,8 @@ public class GLMSolver {
       ArrayList<String> warns = new ArrayList();
       long t1 = System.currentTimeMillis();
 
-      while(++_iterations < _glmParams._maxIter ) {
+
+      while(!_converged && _iterations++ < _glmParams._maxIter ) {
         // Compute the Gram Matrix
         assert !hasNaNsOrInfs(_beta);
         gtask = new GramMatrixTask(this);
@@ -403,19 +404,19 @@ public class GLMSolver {
         }
         // Compute max change in coef's from last iteration to this one,
         // and exit if nothing has changed more than _betaEps
-        double diff = 0.0;
-        for(int i = 0; i < gtask._beta.length; ++i)
-          diff = Math.max(diff, Math.abs(beta[i] - _beta[i]));
-        _beta = beta;
-        _time = System.currentTimeMillis() - t1;
-        if(diff < _glmParams._betaEps) {
+        if(_glmParams._f == Family.gaussian){
           _converged = true;
-          break;
+        } else {
+          double diff = 0.0;
+          for(int i = 0; i < gtask._beta.length; ++i)
+            diff = Math.max(diff, Math.abs(beta[i] - _beta[i]));
+          _converged = diff < _glmParams._betaEps;
         }
+        _time = System.currentTimeMillis() - t1;
+        _beta = beta;
       }
       if(_iterations == _glmParams._maxIter)
         warns.add("Reached max # of iterations!");
-      _beta = (gtask != null)?gtask._beta:null;
       _isDone = true;
       if(!warns.isEmpty())
         _warnings = warns.toArray(new String[warns.size()]);
@@ -488,6 +489,10 @@ public class GLMSolver {
       res.addProperty("time", _time);
       res.addProperty("isDone", _isDone);
       res.addProperty("dataset", _dataset.toString());
+      JsonArray colNames = new JsonArray();
+      for(String s:_colNames)
+        colNames.add(new JsonPrimitive(s));
+      res.add("column_names",colNames);
       if(_key != null)res.addProperty("model_key", _key.toString());
       if( _warnings != null ) {
         JsonArray warnings = new JsonArray();

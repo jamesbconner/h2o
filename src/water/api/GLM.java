@@ -197,7 +197,7 @@ public class GLM extends Request {
     private static void modelHTML( GLMModel m, JsonObject json, StringBuilder sb ) {
       sb.append("<div class='alert'>Actions: " + ((m.is_solved())?(GLMScore.link(m.key(),m._vals[0].bestThreshold(), "Validate on another dataset") + ", "):"") + GLM.link(m._dataset,m, "Compute new model") + "</div>");
       RString R = new RString(
-          "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings</div>" +
+          "<div class='alert %succ'>GLM on data <a href='/Inspect.html?"+KEY+"=%key'>%key</a>. %iterations iterations computed in %time. %warnings %action</div>" +
           "<h4>GLM Parameters</h4>" +
           " %GLMParams %LSMParams" +
           "<h4>Equation: </h4>" +
@@ -213,6 +213,8 @@ public class GLM extends Request {
           wsb.append(s).append("<br>");
         R.replace("warnings",wsb);
         R.replace("succ","alert-warning");
+        if(!m.converged())
+          R.replace("action","Suggested action: Go to " + ((m.is_solved())?(GLMGrid.link(m, "Grid search") + ", "):"") + " to search for better paramters");
       } else
         R.replace("succ","alert-success");
 
