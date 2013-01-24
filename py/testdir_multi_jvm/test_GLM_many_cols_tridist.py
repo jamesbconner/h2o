@@ -36,7 +36,6 @@ paramDict = {
     'weight': [1.0],
     'threshold': [0.4],
     'xval': [1],
-    'expand_cat': [1],
     'beta_epsilon': [1.0E-4],
     }
 
