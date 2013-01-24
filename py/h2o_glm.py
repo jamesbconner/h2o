@@ -4,16 +4,24 @@ import re
 def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # h2o GLM will verboseprint the result and print errors. 
     # so don't have to do that
-    # different when num_cross_validation_foldsidation is used? No trainingErrorDetails?
+    # different when cross validation  is used? No trainingErrorDetails?
     GLMModel = glm['GLMModel']
     warnings = None
     if 'warnings' in GLMModel:
         warnings = GLMModel['warnings']
-        # catch the 'Failed to converge" for now
-        x = re.compile("[Ff]ailed")
+        # stop on failed
+        x = re.compile("failed", re.IGNORECASE)
+        # don't stop if fail to converge
+        c = re.compile("converge", re.IGNORECASE)
         for w in warnings:
             print "\nwarning:", w
-            if re.search(x,w) and not allowFailWarning: raise Exception(w)
+            if re.search(x,w) and not allowFailWarning: 
+                if re.search(c,w):
+                    # ignore the fail to converge warning now
+                    pass
+                else: 
+                    # stop on other 'fail' warnings (are there any? fail to solve?
+                    raise Exception(w)
 
     print "GLM time", GLMModel['time']
 
