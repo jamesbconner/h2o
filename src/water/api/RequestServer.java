@@ -64,19 +64,19 @@ public class RequestServer extends NanoHTTPD {
 
     // internal handlers
     registerRequest(new Exec());
-    registerRequest(new GLMGridProgress());
-    registerRequest(new KMeansProgress());
     registerRequest(new ExportS3Progress());
-    registerRequest(new ParseProgress());
-    registerRequest(new RFTreeView());
-    registerRequest(new TypeaheadKeysRequest());
-    registerRequest(new TypeaheadFileRequest());
-    registerRequest(new TypeaheadS3BucketRequest());
-    registerRequest(new TypeaheadHexKeyRequest());
-    registerRequest(new TypeaheadModelRequest());
-    registerRequest(new WWWFileUpload());
-    registerRequest(new PutVector());
+    registerRequest(new GLMGridProgress());
     registerRequest(new GetVector());
+    registerRequest(new KMeansProgress());
+    registerRequest(new ParseProgress());
+    registerRequest(new PutVector());
+    registerRequest(new RFTreeView());
+    registerRequest(new TypeaheadFileRequest());
+    registerRequest(new TypeaheadHexKeyRequest());
+    registerRequest(new TypeaheadKeysRequest());
+    registerRequest(new TypeaheadModelRequest());
+    registerRequest(new TypeaheadS3BucketRequest());
+    registerRequest(new WWWFileUpload());
 
     // testing hooks
     registerRequest(new TestPoll());
