@@ -53,7 +53,7 @@ class Basic(unittest.TestCase):
             csvPathname2 = SYNDATASETS_DIR + '/' + csvFilename + '_2.csv'
             h2o_util.file_clean_for_R(csvPathname1, csvPathname2)
 
-            kwargs = {'xval': 0, 'y': y, 'family': family, 'link': 'familyDefault',
+            kwargs = {'num_cross_validation_folds': 0, 'y': y, 'family': family, 'link': 'familyDefault',
                 'alpha': 0, 'lambda': 0}
 
             if x is not None:

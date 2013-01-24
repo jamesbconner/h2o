@@ -22,7 +22,7 @@ class Basic(unittest.TestCase):
             'alpha': 0.5, 
             'lambda': 1e-4,
             'max_iter': 15,
-            'xval': 2,
+            'num_cross_validation_folds': 2,
             }
 
     @classmethod

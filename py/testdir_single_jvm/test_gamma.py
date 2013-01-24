@@ -12,8 +12,8 @@ def define_params():
         'x': [0,1,15,33],
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'family': ['gamma'],
-        # 'xval': [2,3,4,9],
-        'xval': [0],
+        # 'num_cross_validation_folds': [2,3,4,9],
+        'num_cross_validation_folds': [0],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'lambda': [1e-4],
         # 0 is L2. 1 is L1. Inbetween is Elastic
@@ -59,8 +59,8 @@ class Basic(unittest.TestCase):
             # default
             colX = 0
             # form random selections of GLM parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details
+            # always need Y=54. and always need some num_cross_validation_folds (which can be overwritten)
+            # with a different choice. we need the num_cross_validation_folds to get the error details
             # in the json(below)
             kwargs = {'y': 54, 'alpha': 0, 'lambda': 0, 'case_mode': '=', 'case': 1, 'max_iter': 6}
             randomGroupSize = random.randint(1,len(paramDict))

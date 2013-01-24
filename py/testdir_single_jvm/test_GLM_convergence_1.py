@@ -93,7 +93,7 @@ class Basic(unittest.TestCase):
                     'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'xval': 0,
+                    'num_cross_validation_folds': 0,
                     'beta_epsilon': 1e-4,
                     'thresholds': '0:1:0.01',
                     }

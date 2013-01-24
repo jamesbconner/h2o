@@ -8,7 +8,7 @@ def define_params():
     paramDict = {
         'x': [0,1,15,33,34],
         'family': ['gaussian'],
-        'xval': [2,3,4,9,15],
+        'num_cross_validation_folds': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'lambda': [1e-8, 1e-4],
         'alpha': [0,0.5,0.75],
@@ -47,11 +47,11 @@ class Basic(unittest.TestCase):
             # default
             colX = 0 
             # form random selections of RF parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details 
+            # always need Y=54. and always need some num_cross_validation_folds (which can be overwritten)
+            # with a different choice. we need the num_cross_validation_folds to get the error details 
             # in the json(below)
             # always do gaussian!
-            kwargs = {'y': 54, 'xval': 3, 'family': "gaussian", 'lambda': 1e-4, 'case': 1}
+            kwargs = {'y': 54, 'num_cross_validation_folds': 3, 'family': "gaussian", 'lambda': 1e-4, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

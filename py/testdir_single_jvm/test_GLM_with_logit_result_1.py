@@ -135,7 +135,7 @@ class Basic(unittest.TestCase):
                     'weight': 1.0,
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'xval': 3,
+                    'num_cross_validation_folds': 3,
                     'beta_epsilon': 1e-4,
                     'thresholds': 0.5,
                     }

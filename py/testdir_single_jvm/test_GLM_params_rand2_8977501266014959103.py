@@ -10,7 +10,7 @@ def define_params():
     paramDict = {
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'family': [None, 'gaussian', 'binomial', 'poisson'],
-        'xval': [2,3,4,9],
+        'num_cross_validation_folds': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'lambda': [0, 1e-4],
         'alpha': [0,0.5,0.75],
@@ -51,8 +51,8 @@ class Basic(unittest.TestCase):
         paramDict = define_params()
         for trial in range(20):
             # form random selections of GLM parameters
-            # always need Y=54. and always need some xval (which can be overwritten)
-            # with a different choice. we need the xval to get the error details
+            # always need Y=54. and always need some num_cross_validation_folds (which can be overwritten)
+            # with a different choice. we need the num_cross_validation_folds to get the error details
             # in the json(below)
             kwargs = {'y': 54, 'alpha': 0, 'lambda': 0, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))

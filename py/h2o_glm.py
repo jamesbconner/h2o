@@ -4,7 +4,7 @@ import re
 def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # h2o GLM will verboseprint the result and print errors. 
     # so don't have to do that
-    # different when xvalidation is used? No trainingErrorDetails?
+    # different when num_cross_validation_foldsidation is used? No trainingErrorDetails?
     GLMModel = glm['GLMModel']
     warnings = None
     if 'warnings' in GLMModel:
