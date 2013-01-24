@@ -25,7 +25,8 @@ paramDict = {
     'sample': [None,20,40,60,80,100],
     'seed': [None,'0','1','11111','19823134','1231231'],
     'features': [None,1,3,5,7,9,11,13,17,19,23,37,53],
-    'stratify': [None,0,1,1,1,1,1,1,1,1,1],
+    # disable for now
+    ### 'stratify': [None,0,1,1,1,1,1,1,1,1,1],
     'strata': [
         None,
         "0:10",
@@ -68,7 +69,7 @@ class Basic(unittest.TestCase):
 
             print kwargs
             
-            h2o_cmd.runRF(timeoutSecs=70, csvPathname=csvPathname, **kwargs)
+            h2o_cmd.runRF(timeoutSecs=150, csvPathname=csvPathname, **kwargs)
 
             print "Trial #", trial, "completed"
 
