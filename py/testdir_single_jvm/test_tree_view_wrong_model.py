@@ -12,7 +12,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_tree_view(self):
+    def test_tree_view_wrong_model(self):
         csvFilename = "poker1000"
         csvPathname = h2o.find_file('smalldata/poker/' + csvFilename)
         # tree view failed with poker1000, passed with iris
@@ -22,7 +22,7 @@ class Basic(unittest.TestCase):
         for n in range(1):
             # Give it the wrong model_key name. This caused a stack track
             a = h2o_cmd.runRFTreeView(n=n, 
-                dataKey=csvFilename + ".hex", model_key="wrong_model_name", timeoutSecs=10)
+                data_key=csvFilename + ".hex", model_key="wrong_model_name", timeoutSecs=10)
             print (h2o.dump_json(a))
 
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ sys.path.extend(['.','..','py'])
 import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 
 
-def generate_rand_equation(colCount, SEED):
+def gen_rand_equation(colCount, SEED):
     r1 = random.Random(SEED)
     coefficients = []
     # y = 1/(1 + exp(-(sum(coefficients*x)+intercept))
@@ -16,7 +16,6 @@ def generate_rand_equation(colCount, SEED):
         # coefficients.append(rif)
         coefficients.append(j+1)
         # coefficients.append(2 + 2*(j%2))
-
 
     ### ri = r1.randint(-1,1)
     ### intercept = (ri)
@@ -29,7 +28,7 @@ def generate_rand_equation(colCount, SEED):
 
 # FIX! random noise on coefficients? randomly force 5% to 0?  
 #y = 1/(1 + math.exp(-(sum(coefficients*x)+intercept)) 
-def generate_binomial_from_eqn_and_data(coefficients, intercept, rowData, noise=None):
+def gen_binomial_from_eqn_and_data(coefficients, intercept, rowData, flip=False):
     # FIX! think about using noise on some of the rowData
     cx = [a*b for a,b in zip(coefficients, rowData)]
     y = 1/(1 + math.exp(-(sum(cx) + intercept)))
@@ -39,11 +38,15 @@ def generate_binomial_from_eqn_and_data(coefficients, intercept, rowData, noise=
     if (y<0 or y>1):
         raise Exception("Generated y result is should be between 0 and 1: " + y)
     if (y>=0.75):
-        return (1,y)
+        result = 1
     else:
-        return (0,y)
+        result = 0
 
-def write_syn_dataset(csvPathname, rowCount, colCount, coefficients, intercept, SEED, noise=None):
+    if flip: 
+        result = (result + 1) % 2
+    return (result,y)
+
+def write_syn_dataset(csvPathname, rowCount, colCount, coefficients, intercept, SEED, noise=0.05):
     r1 = random.Random(SEED)
     dsf = open(csvPathname, "w+")
 
@@ -54,10 +57,17 @@ def write_syn_dataset(csvPathname, rowCount, colCount, coefficients, intercept, 
         rowData = []
         for j in range(colCount):
             ri = r1.randint(0,1) 
-            # ri = r1.triangular(0,1,j/colCount)
             rowData.append(ri)
+        
+        # flip if within the noise percentage
+        if (noise is not None) and (r1.random() <= noise): 
+            flip = True
+        else: 
+            flip = False
 
-        (binomial, actual) = generate_binomial_from_eqn_and_data(coefficients, intercept, rowData, noise=noise)
+        (binomial, actual) = gen_binomial_from_eqn_and_data(
+            coefficients, intercept, rowData, flip=flip)
+
         if minActual is None or actual<minActual: minActual = actual
         if maxActual is None or actual>maxActual: maxActual = actual
 
@@ -103,8 +113,9 @@ class Basic(unittest.TestCase):
             csvFilename = 'syn_' + str(SEEDPERFILE) + "_" + str(rowCount) + 'x' + str(colCount) + '.csv'
             csvPathname = SYNDATASETS_DIR + '/' + csvFilename
 
-            print "Creating random", csvPathname, "using random coefficients and intercept and logit eqn. for output"
-            (coefficients, intercept) = generate_rand_equation(colCount, SEEDPERFILE)
+            print "Creating random", csvPathname, \
+                "using random coefficients and intercept and logit eqn. for output"
+            (coefficients, intercept) = gen_rand_equation(colCount, SEEDPERFILE)
             print coefficients, intercept
             write_syn_dataset(csvPathname, rowCount, colCount, coefficients, intercept, SEEDPERFILE)
 
@@ -119,21 +130,20 @@ class Basic(unittest.TestCase):
 
             y = colCount
             kwargs = {'y': y, 'max_iter': 60, 
-                    'penalty': 10,
-                    'alpha': 1.0,
+                    'lambda': 1,
+                    'alpha': 0,
                     'weight': 1.0,
-                    'link': 'familyDefault',
                     # what about these?
                     # 'link': [None, 'logit','identity', 'log', 'inverse'],
-                    'x_value': 3,
+                    'xval': 3,
                     'beta_epsilon': 1e-4,
                     'thresholds': 0.5,
                     }
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
-            print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             (warnings, coefficients, intercept) = h2o_glm.simpleCheckGLM(self, glm, 0, **kwargs)
+            print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("GLM")

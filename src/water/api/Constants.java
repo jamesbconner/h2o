@@ -64,7 +64,7 @@ public class Constants {
   public static final String K                     = "k";
   public static final String KEY                   = "key";
   public static final String KEYS                  = "keys";
-  public static final String LAMBDA                = "penalty";
+  public static final String LAMBDA                = "lambda";
   public static final String LIMIT                 = "limit";
   public static final String LINK                  = "link";
   public static final String LOCKED                = "locked";
@@ -162,6 +162,6 @@ public class Constants {
   public static final String WEIGHTS               = "class_weights";
   public static final String WIDTH                 = "width";
   public static final String X                     = "x";
-  public static final String XVAL                  = "x_value";
+  public static final String XVAL                  = "xval";
   public static final String Y                     = "y";
 }

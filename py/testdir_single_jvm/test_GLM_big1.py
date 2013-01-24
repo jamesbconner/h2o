@@ -56,7 +56,7 @@ class Basic(unittest.TestCase):
             print "y:", y
 
             start = time.time()
-            kwargs = {'x': x, 'y': y, 'x_value': 6}
+            kwargs = {'x': x, 'y': y, 'xval': 6}
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=300, **kwargs)
 
             # pass the kwargs with all the params, so we know what we asked for!

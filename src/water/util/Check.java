@@ -12,8 +12,12 @@ public class Check {
     // python reserved words
     "and", "assert", "break", "class", "continue", "def", "del", "elif",
     "else", "except", "exec", "finally", "for", "from", "global", "if",
-    "import", "in", "is", "lambda", "not", "or", "pass", "print", "raise",
+    "import", "in", "is", "not", "or", "pass", "print", "raise",
     "return", "try", "while",
+    // "lambda", - while lambda is a python reserved word, this word is also
+    // the main term-of-the-art in GLM.  People expect to see 'lambda' in
+    // reference to GLM.
+
     // java reserved words
     "public", "private", "protected", "static", "true", "false", "final",
     "volatile", "transient", "package", "catch"

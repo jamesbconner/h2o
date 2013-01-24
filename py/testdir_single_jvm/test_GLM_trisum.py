@@ -7,13 +7,13 @@ import h2o, h2o_cmd, h2o_hosts, h2o_browse as h2b, h2o_import as h2i, h2o_glm
 def define_params():
     paramDict = {
         'family': ['binomial'],
-        'penalty': [1.0E-4],
+        'lambda': [1.0E-4],
         'alpha': [0.5],
         'max_iter': [2000],
         'weight': [1.0],
         'thresholds': [0.5],
         # 'link': [familyDefault],
-        'x_value': [1],
+        'xval': [1],
         'expand_cat': [1],
         'beta_epsilon': [1.0E-4],
         }

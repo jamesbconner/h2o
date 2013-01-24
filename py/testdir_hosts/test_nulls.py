@@ -50,8 +50,8 @@ class Basic(unittest.TestCase):
 
                 timeoutSecs = 20 + 5*(len(h2o.nodes))
                 
-                modelKey = csvFilename + "_" + str(trials)
-                h2o_cmd.runRF(trees=trees, modelKey=modelKey, csvPathname=nulPathname,
+                model_key = csvFilename + "_" + str(trials)
+                h2o_cmd.runRF(trees=trees, model_key=model_key, csvPathname=nulPathname,
                     timeoutSecs=timeoutSecs, retryDelaySecs=1)
                 sys.stdout.write('.')
                 sys.stdout.flush()

@@ -13,50 +13,78 @@ class Basic(unittest.TestCase):
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         print "\n" + csvPathname
         parseKey = h2o_cmd.parseFile(csvPathname=csvPathname,timeoutSecs=10)
-        # columns start at 0
-        y = '54'
+
+        global default_kwargs
+        default_kwargs = {
+            'y': 54, 
+            'case': 1, 
+            'case_mode': '=', 
+            'alpha': 0.5, 
+            'lambda': 1e1,
+            'max_iter': 15,
+            'xval': 2,
+            }
 
     @classmethod
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    # FIX! fails
-    def test_A_covtype_no_x_value(self):
+    def test_A_covtype_case_1(self):
         start = time.time()
-        kwargs = {'y': y, 'case': 1}
+        kwargs = default_kwargs
+        kwargs['case'] = 1
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm no x_value end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
-    # FIX! fails
-    def test_B_covtype_x_value_0(self):
+    def test_B_covtype_case_2(self):
         start = time.time()
-        kwargs = {'y': y, 'x_value': 0, 'case': 1}
+        kwargs = default_kwargs
+        kwargs['case'] = 2
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm x_value=0 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
     # FIX! fails
-    def test_C_covtype_x_value_1(self):
+    def test_C_covtype_case_3(self):
         start = time.time()
-        kwargs = {'y': y, 'x_value': 1, 'case': 1}
+        kwargs = default_kwargs
+        kwargs['case'] = 3
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm x_value=1 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
-    def test_D_covtype_x_value_2(self):
+    def test_D_covtype_case_4(self):
         start = time.time()
-        kwargs = {'y': y, 'x_value': 2, 'case': 1}
+        kwargs = default_kwargs
+        kwargs['case'] = 4
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm x_value=2 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
-    def test_E_covtype_x_value_10(self):
+    def test_E_covtype_case_5(self):
         start = time.time()
-        kwargs = {'y': y, 'x_value': 10, 'case': 1}
+        kwargs = default_kwargs
+        kwargs['case'] = 5
         glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
         h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
-        print "glm x_value=10 end on ", csvPathname, 'took', time.time() - start, 'seconds'
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
+
+    def test_F_covtype_case_6(self):
+        start = time.time()
+        kwargs = default_kwargs
+        kwargs['case'] = 6
+        glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
+        h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
+
+    def test_G_covtype_case_7(self):
+        start = time.time()
+        kwargs = default_kwargs
+        kwargs['case'] = 7
+        glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=180, **kwargs)
+        h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
+        print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
 
 if __name__ == '__main__':
     h2o.unit_main()

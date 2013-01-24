@@ -8,9 +8,9 @@ def define_params():
     paramDict = {
         'x': [0,1,15,33,34],
         'family': ['binomial'],
-        'x_value': [2,3,4,9,15],
+        'xval': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'penalty': [None, 1e-8, 1e-4,1,10,1e4],
+        'lambda': [None, 1e-8, 1e-4,1,10,1e4],
         'alpha': [None, 0,0.5,1],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
@@ -45,7 +45,7 @@ class Basic(unittest.TestCase):
         for trial in range(40):
             # default
             colX = 0 
-            kwargs = {'y': 54, 'x_value' : 3, 'family' : 'binomial', 'max_iter' : 5, 'case': 1}
+            kwargs = {'y': 54, 'xval' : 3, 'family' : 'binomial', 'max_iter' : 5, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

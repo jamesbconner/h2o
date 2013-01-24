@@ -3,8 +3,8 @@ import numpy as np
 from rpy2 import robjects as ro
 import rpy2.rlike.container as rlc
 
-def train(x_values, y_values, weights):
-        x_float_vector = [ro.FloatVector(x) for x in np.array(x_values).transpose()]
+def train(xvals, y_values, weights):
+        x_float_vector = [ro.FloatVector(x) for x in np.array(xvals).transpose()]
         y_float_vector = ro.FloatVector(y_values)   
         weights_float_vector = ro.FloatVector(weights)
         names = ['v' + str(i) for i in xrange(len(x_float_vector))]
@@ -20,11 +20,11 @@ def train(x_values, y_values, weights):
         print "formula:", formula
 
 
-x_values = np.array([(0,1,2,3,4,5,6)])
+xvals = np.array([(0,1,2,3,4,5,6)])
 y_values = np.array([0])
 weights =  np.array([1])
 
-train(x_values, y_values, weights)
+train(xvals, y_values, weights)
 
 
 

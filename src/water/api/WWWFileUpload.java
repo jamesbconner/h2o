@@ -187,10 +187,10 @@ public class WWWFileUpload extends JSONOnlyRequest {
       // The returned JSON object should follow structure of jquery-upload plugin
       JsonArray jsonResult = new JsonArray();
       JsonObject jsonFile = new JsonObject();
-      jsonFile.addProperty("name", filename);
-      jsonFile.addProperty("size", val.length());
-      jsonFile.addProperty("url", "/Get?Key=" + key.toString());
-      jsonFile.addProperty("key", key.toString());
+      jsonFile.addProperty(NAME, filename);
+      jsonFile.addProperty(SIZE, val.length());
+      jsonFile.addProperty( URL, "/Get?"+KEY+"=" + key.toString());
+      jsonFile.addProperty( KEY, key.toString());
       jsonResult.add(jsonFile);
 
       return jsonResult;

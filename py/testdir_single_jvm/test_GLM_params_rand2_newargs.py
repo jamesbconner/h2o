@@ -7,7 +7,7 @@ import h2o, h2o_cmd
 import h2o_glm
 
 # none is illegal for threshold
-# always run with x_value, to make sure we get the trainingErrorDetails
+# always run with xval, to make sure we get the trainingErrorDetails
 # FIX! we'll have to do something for gaussian. It doesn't return the ted keys below
 
 # some newer args for new port
@@ -18,19 +18,19 @@ def define_params():
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         # FIX! does None default to anything? I guess binomial
         'family': ['gaussian', 'binomial'],
-        'x_value': [2,3,4,9],
+        'xval': [2,3,4,9],
         'threshold': [0.1, 0.5, 0.7, 0.9],
-        # 'penalty': [None, 1e-8, 1e-4,1,10,1e4],
+        # 'lambda': [None, 1e-8, 1e-4,1,10,1e4],
         # Update: None is a problem with 'fail to converge'
-        'penalty': [0, 1e-8, 1e-4,1],
+        'lambda': [0, 1e-8, 1e-4,1],
         'alpha': [None, 0,0.2,0.8,1],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # FIX! will n/a be like NaN and make covtype break?
-        # if caseMode=n/a the browser doesn't allow case?
+        # if case_mode=n/a the browser doesn't allow case?
         # emulate that below..UPDATE: doesn't work for covtype, always need case
         # Update: n/a can't be used with covtype
-        'caseMode': ['>','<','=','<=','>='],
+        'case_mode': ['>','<','=','<=','>='],
         # FIX! inverse and log were causing problems..add back in?
         # 'link': [None, 'familyDefault', 'logit','identity', 'log', 'inverse'],
         'link': [None, 'logit'],
@@ -75,7 +75,7 @@ class Basic(unittest.TestCase):
                 if (randomKey=='x'):
                     colX = randomValue
 
-            # if caseMode=n/a the browser doesn't allow case
+            # if case_mode=n/a the browser doesn't allow case
             # basically simplifies to always needing 'case" ..for covtype
             if ('case' not in kwargs) or (kwargs['case'] is None):
                 kwargs['case'] = 1

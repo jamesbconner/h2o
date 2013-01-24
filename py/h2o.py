@@ -834,13 +834,18 @@ class H2O(object):
 
 
     # GLMScore params
-    # modelKey=__GLMModel_7a3a73c1-f272-4a2e-b37f-d2f371d304ba&
+    # model_key=__GLMModel_7a3a73c1-f272-4a2e-b37f-d2f371d304ba&
     # key=cuse.hex&
     # thresholds=0%3A1%3A0.01
-    def GLMScore(self, key, modelKey, timeoutSecs=100, **kwargs):
+    def GLMScore(self, key, model_key, timeoutSecs=100, **kwargs):
         browseAlso = kwargs.pop('browseAlso',False)
+        # i guess key and model_key could be in kwargs, but 
+        # maybe separate is more consistent with the core key behavior
+        # elsewhere
         params_dict = { 
             'thresholds': 0.5,
+            'key': key,
+            'model_key': model_key,
         }
         params_dict.update(kwargs)
         print "\nGLMScore params list", params_dict

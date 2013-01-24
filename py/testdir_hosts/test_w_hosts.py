@@ -20,12 +20,12 @@ class Basic(unittest.TestCase):
 
     def notest_B_RF_iris2(self):
         csvPathname = h2o.find_file('smalldata/iris/iris2.csv')
-        h2o_cmd.runRF(trees=6, modelKey="iris2", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=6, model_key="iris2", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def notest_C_RF_poker100(self):
         # RFview consumes cycles. Only retry once a second, to avoid slowing things down
         csvPathname = h2o.find_file('smalldata/poker/poker100')
-        h2o_cmd.runRF(trees=6, modelKey="poker100", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
+        h2o_cmd.runRF(trees=6, model_key="poker100", timeoutSecs=10, retryDelaySecs=1, csvPathname=csvPathname)
 
     def test_D_GenParity1(self):
         # Create a directory for the created dataset files. ok if already exists
@@ -66,8 +66,8 @@ class Basic(unittest.TestCase):
                 timeoutSecs = 30 + trees*(len(h2o.nodes))
 
                 # change the model name each iteration, so they stay in h2o
-                modelKey = csvFilename + "_" + str(trials)
-                h2o_cmd.runRF(trees=trees, modelKey=modelKey, timeoutSecs=timeoutSecs, 
+                model_key = csvFilename + "_" + str(trials)
+                h2o_cmd.runRF(trees=trees, model_key=model_key, timeoutSecs=timeoutSecs, 
                     retryDelaySecs=1, csvPathname=csvPathname)
                 sys.stdout.write('.')
                 sys.stdout.flush()

@@ -29,21 +29,10 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # don't want to modify validationsList in case someone else looks at it
     validations = validationsList[0]
     print "\nGLMModel/validations/err:", validations['err']
+    print "\nGLMModel/validations/auc:", validations['auc']
 
-    if (not family in kwargs) or kwargs['family']=='poisson' or kwargs['family']=="gaussian":
-        # FIX! x_value not in gaussian or poisson?
-        pass
-    else:
-        if ('x_value' in kwargs):
-            # no cm in poisson?
-            cmList = validations['cm']
-
-            x_valueList = glm['x_value']
-            x_value = x_valueList[0]
-            # FIX! why is this returned as a list? no reason?
-            validationsList = x_value['validations']
-            validations = validationsList[0]
-            print "\nx_value/../validations/err:", validations['err']
+    # FIX! the cross validation models are in a different key now
+    # so we don't look at them here any more
 
     # it's a dictionary!
     # get a copy, so we don't destroy the original when we pop the intercept
@@ -109,11 +98,9 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
         str(absIntercept) + ", not >= 1e-18 for Intercept"
                 ))
 
-    # this is gon d])[1]d if we want min or max
-    # but we want it more complicated..min or max of abs
+    # this is good if we just want min or max
     # maxCoeff = max(coefficients, key=coefficients.get)
-    # so invert the dictionary and 
-
+    # for more, just invert the dictionary and ...
     maxKey = max([(abs(coefficients[x]),x) for x in coefficients])[1]
     print "Largest abs. coefficient value:", maxKey, coefficients[maxKey]
     minKey = min([(abs(coefficients[x]),x) for x in coefficients])[1]
@@ -136,7 +123,6 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
             "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
             ))
 
-    
     return (warnings, cList, intercept)
 
 
@@ -189,7 +175,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
 #       "error_0": 1.0, 
 #       "error_1": 0.0, 
 #       "key": "__GLMModel_8b0fc26c-3a9c-4c4b-8cf6-240cc5b60508", 
-#       "penalty": 0.009999999999999998, 
+#       "lambda": 0.009999999999999998, 
 #     }, 
     model0 = glmGridResult['models'][0]
     alpha = model0['alpha']
@@ -199,7 +185,7 @@ def simpleCheckGLMGrid(self, glmGridResult, colX=None, allowFailWarning=False, *
     key = model0['key']
     print "best GLM model key:", key
 
-    glm_penalty = model0['penalty']
+    glm_lambda = model0['lambda']
 
     # now indirect to the GLM result/model that's first in the list (best)
     inspectGLM = h2o_cmd.runInspect(None, key)
