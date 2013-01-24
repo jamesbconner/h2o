@@ -31,22 +31,8 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     print "\nGLMModel/validations/err:", validations['err']
     print "\nGLMModel/validations/auc:", validations['auc']
 
-    if (not family in kwargs) or kwargs['family']=='poisson' or kwargs['family']=="gaussian":
-        # FIX! x_value not in gaussian or poisson?
-        pass
-    else:
-        if ('x_value' in kwargs):
-            # FIX! this is all wrong due to global substitue on the xval param name
-            # this is the xval response in the json
-
-            # no cm in poisson?
-            cmList = validations['cm']
-            x_valueList = glm['x_value']
-            x_value = x_valueList[0]
-            # FIX! why is this returned as a list? no reason?
-            validationsList = x_value['validations']
-            validations = validationsList[0]
-            print "\nx_value/../validations/err:", validations['err']
+    # FIX! the cross validation models are in a different key now
+    # so we don't look at them here any more
 
     # it's a dictionary!
     # get a copy, so we don't destroy the original when we pop the intercept
@@ -112,11 +98,9 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
         str(absIntercept) + ", not >= 1e-18 for Intercept"
                 ))
 
-    # this is gon d])[1]d if we want min or max
-    # but we want it more complicated..min or max of abs
+    # this is good if we just want min or max
     # maxCoeff = max(coefficients, key=coefficients.get)
-    # so invert the dictionary and 
-
+    # for more, just invert the dictionary and ...
     maxKey = max([(abs(coefficients[x]),x) for x in coefficients])[1]
     print "Largest abs. coefficient value:", maxKey, coefficients[maxKey]
     minKey = min([(abs(coefficients[x]),x) for x in coefficients])[1]
@@ -139,7 +123,6 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
             "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
             ))
 
-    
     return (warnings, cList, intercept)
 
 

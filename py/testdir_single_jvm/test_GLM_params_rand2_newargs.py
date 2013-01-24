@@ -27,7 +27,7 @@ def define_params():
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # FIX! will n/a be like NaN and make covtype break?
-        # if caseMode=n/a the browser doesn't allow case?
+        # if case_mode=n/a the browser doesn't allow case?
         # emulate that below..UPDATE: doesn't work for covtype, always need case
         # Update: n/a can't be used with covtype
         'case_mode': ['>','<','=','<=','>='],
