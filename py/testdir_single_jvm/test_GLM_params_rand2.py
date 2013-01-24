@@ -12,7 +12,7 @@ def define_params():
         'num_cross_validation_folds': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'lambda': [0,1e-4,1],
-        'alpha': [0,0.8,1],
+        'alpha': [0,0.8,0.75],
         # new?
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
