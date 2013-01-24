@@ -13,7 +13,7 @@ def define_params():
         'weight': [1.0],
         'thresholds': [0.5],
         # 'link': [familyDefault],
-        'x_value': [1],
+        'xval': [1],
         'expand_cat': [1],
         'beta_epsilon': [1.0E-4],
         }

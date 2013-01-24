@@ -26,7 +26,7 @@ def glm_doit(self, csvFilename, csvPathname, timeoutSecs=30):
     parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key2=csvFilename, timeoutSecs=10)
     y = "10"
     x = ""
-    # Took x_value out, because GLM doesn't include x_value time and it's slow
+    # Took xval out, because GLM doesn't include xval time and it's slow
     # wanted to compare GLM time to my measured time
     # hastie has two values, 1 and -1. need to use case for one of them
     kwargs = {'x': x, 'y':  y, 'case': -1}

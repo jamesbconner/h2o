@@ -27,7 +27,7 @@ argcaseList = [
         'weight': 1.0,
         'thresholds': 0.5,
         'link': 'familyDefault',
-        'x_value': 0,
+        'xval': 0,
         'expand_cat': 0,
         'alpha': 1,
         'beta_epsilon': 1.0E-4 },

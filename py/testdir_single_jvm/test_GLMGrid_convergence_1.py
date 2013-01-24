@@ -93,7 +93,7 @@ class Basic(unittest.TestCase):
                     'max_iter': 5, 
                     'weight': 1.0,
                     'link': 'familyDefault',
-                    'x_value': 2,
+                    'xval': 2,
                     'beta_epsilon': 1e-4,
                     #***********
                     'lambda': '1e-3:1e3:1e1',

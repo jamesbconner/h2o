@@ -38,13 +38,13 @@ class Basic(unittest.TestCase):
         print "y:", y
         
         kwargs = {
-            'x': x, 'y':  y, 'x_value': 2, 
+            'x': x, 'y':  y, 'xval': 2, 
             'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
             'thresholds': '0:1:0.01'
             }
-        # fails with x_value
-        print "Not doing x_value with benign. Fails with 'unable to solve?'"
+        # fails with xval
+        print "Not doing xval with benign. Fails with 'unable to solve?'"
 
         gg = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         # check the first in the models list. It should be the best
@@ -81,7 +81,7 @@ class Basic(unittest.TestCase):
         # colon separated is min/max/step
         # FIX! have to update other GLMGrid tests
         kwargs = {
-            'x': x, 'y':  y, 'x_value': 2, 
+            'x': x, 'y':  y, 'xval': 2, 
             'beta_epsilon': 1e-4,
             'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
