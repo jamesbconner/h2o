@@ -64,10 +64,10 @@ def runGLMOnly(node=None,parseKey=None,
     return node.GLM(parseKey['destination_key'], timeoutSecs, **kwargs)
 
 # FIX! how do we run RF score on another model?
-def runGLMScore(node=None, key=None, modelKey=None, timeoutSecs=20,retryDelaySecs=2,**kwargs):
+def runGLMScore(node=None, key=None, model_key=None, timeoutSecs=20,retryDelaySecs=2,**kwargs):
     if not node: node = h2o.nodes[0]
     # no such thing as GLMView..don't use retryDelaySecs
-    return node.GLMScore(node, key, modelKey, timeoutSecs, **kwargs)
+    return node.GLMScore(node, key, model_key, timeoutSecs, **kwargs)
 
 def runGLMGrid(node=None,csvPathname=None,key=None,
         timeoutSecs=60,retryDelaySecs=2,**kwargs):

@@ -20,9 +20,10 @@ class Basic(unittest.TestCase):
             model_key="model0", timeoutSecs=10)
 
         for n in range(1):
-            # the default model_key  is "model". and we know the dataKey from parseFile will be poker1000.hex
+            # the default model_key  is "model". 
+            #and we know the data_key from parseFile will be poker1000.hex
             a = h2o_cmd.runRFTreeView(n=n, 
-                dataKey=csvFilename + ".hex", model_key="model0", timeoutSecs=10)
+                data_key=csvFilename + ".hex", model_key="model0", timeoutSecs=10)
             print (h2o.dump_json(a))
 
 if __name__ == '__main__':

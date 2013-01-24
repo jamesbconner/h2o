@@ -29,15 +29,18 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # don't want to modify validationsList in case someone else looks at it
     validations = validationsList[0]
     print "\nGLMModel/validations/err:", validations['err']
+    print "\nGLMModel/validations/auc:", validations['auc']
 
     if (not family in kwargs) or kwargs['family']=='poisson' or kwargs['family']=="gaussian":
         # FIX! x_value not in gaussian or poisson?
         pass
     else:
         if ('x_value' in kwargs):
+            # FIX! this is all wrong due to global substitue on the xval param name
+            # this is the xval response in the json
+
             # no cm in poisson?
             cmList = validations['cm']
-
             x_valueList = glm['x_value']
             x_value = x_valueList[0]
             # FIX! why is this returned as a list? no reason?

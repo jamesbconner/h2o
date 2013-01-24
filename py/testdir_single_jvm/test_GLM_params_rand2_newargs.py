@@ -30,7 +30,7 @@ def define_params():
         # if caseMode=n/a the browser doesn't allow case?
         # emulate that below..UPDATE: doesn't work for covtype, always need case
         # Update: n/a can't be used with covtype
-        'caseMode': ['>','<','=','<=','>='],
+        'case_mode': ['>','<','=','<=','>='],
         # FIX! inverse and log were causing problems..add back in?
         # 'link': [None, 'familyDefault', 'logit','identity', 'log', 'inverse'],
         'link': [None, 'logit'],
@@ -75,7 +75,7 @@ class Basic(unittest.TestCase):
                 if (randomKey=='x'):
                     colX = randomValue
 
-            # if caseMode=n/a the browser doesn't allow case
+            # if case_mode=n/a the browser doesn't allow case
             # basically simplifies to always needing 'case" ..for covtype
             if ('case' not in kwargs) or (kwargs['case'] is None):
                 kwargs['case'] = 1
