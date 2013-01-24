@@ -35,8 +35,7 @@ paramDict = {
     'max_iter': [50],
     'weight': [1.0],
     'threshold': [0.4],
-    'xval': [1],
-    'expand_cat': [1],
+    'num_cross_validation_folds': [1],
     'beta_epsilon': [1.0E-4],
     }
 

@@ -55,7 +55,6 @@ class Basic(unittest.TestCase):
             (10000, 400, 'cG', 300), 
             (10000, 500, 'cH', 300), 
             (10000, 1000, 'cI', 300), 
-            (10000, 3000, 'cJ', 300), # 120 secs?
             ]
 
         ### h2b.browseTheCloud()
@@ -78,7 +77,7 @@ class Basic(unittest.TestCase):
             print "\n" + csvFilename
 
             y = colCount
-            kwargs = {'y': y, 'max_iter': 50, 'xval': 3}
+            kwargs = {'y': y, 'max_iter': 50, 'num_cross_validation_folds': 3, 'alpha': 0.2, 'lambda': 1e-5}
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'

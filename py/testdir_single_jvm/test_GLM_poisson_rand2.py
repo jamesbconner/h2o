@@ -9,12 +9,13 @@ def define_params():
     paramDict = {
         'x': [0,1,15,33,34],
         'family': ['poisson'],
-        'xval': [2,3,4,9,15],
+        'num_cross_validation_folds': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 1e-8, 1e-4,1],
-        'alpha': [None, 0,0.5,1],
+        'lambda': [1e-8, 1e-4,1],
+        'alpha': [0,0.5,0.75],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
+        'case_mode': ['>','<','=','<=','>='],
         # inverse and log causing problems
         # 'link': [None, 'logit','identity', 'log', 'inverse'],
         'max_iter': [None, 10],
@@ -46,7 +47,7 @@ class Basic(unittest.TestCase):
         for trial in range(20):
             # default
             colX = 0 
-            kwargs = {'y': 54, 'xval': 3, 'family': "poisson", 'lambda': 1e-4, 'case': 1}
+            kwargs = {'y': 54, 'num_cross_validation_folds': 3, 'family': "poisson", 'lambda': 1e-4, 'case_mode': '=', 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())

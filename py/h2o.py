@@ -735,7 +735,7 @@ class H2O(object):
             'model_key': model_key,
             'OOBEE': None,
             'class_weights': None,
-            'class': None, # FIX! apparently this is needed now?
+            'response_variable': None, # FIX! apparently this is needed now?
             }
 
         browseAlso = kwargs.pop('browseAlso',False)

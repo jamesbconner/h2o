@@ -87,7 +87,7 @@ def runGLMGridOnly(node=None,parseKey=None,
 # there are more RF parameters in **kwargs. see h2o.py
 def runRF(node=None, csvPathname=None, trees=5, key=None, 
         timeoutSecs=20, retryDelaySecs=2, **kwargs):
-    # use 1/10th the GLM timeoutSecs for allowed parse time.
+    # use 1/5th the RF timeoutSecs for allowed parse time.
     pto = max(timeoutSecs/5,30)
     parseKey = parseFile(node, csvPathname, key, timeoutSecs=pto)
     return runRFOnly(node, parseKey, trees, timeoutSecs, retryDelaySecs, **kwargs)

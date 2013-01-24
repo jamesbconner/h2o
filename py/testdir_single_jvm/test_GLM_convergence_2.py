@@ -88,10 +88,10 @@ class Basic(unittest.TestCase):
             kwargs = {
                     'max_iter': 40, 
                     'lambda': 1e0,
-                    'alpha': 1.0,
+                    'alpha': 0.5,
                     'weight': 1.0,
                     'link': 'familyDefault',
-                    'xval': 0,
+                    'num_cross_validation_folds': 0,
                     'beta_epsilon': 1e-4,
                     'thresholds': '0:1:0.01',
                     }

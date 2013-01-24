@@ -7,7 +7,7 @@ import h2o, h2o_cmd
 import h2o_glm
 
 # none is illegal for threshold
-# always run with xval, to make sure we get the trainingErrorDetails
+# always run with num_cross_validation_folds, to make sure we get the trainingErrorDetails
 # FIX! we'll have to do something for gaussian. It doesn't return the ted keys below
 
 # some newer args for new port
@@ -18,12 +18,12 @@ def define_params():
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         # FIX! does None default to anything? I guess binomial
         'family': ['gaussian', 'binomial'],
-        'xval': [2,3,4,9],
+        'num_cross_validation_folds': [2,3,4,9],
         'threshold': [0.1, 0.5, 0.7, 0.9],
         # 'lambda': [None, 1e-8, 1e-4,1,10,1e4],
         # Update: None is a problem with 'fail to converge'
-        'lambda': [0, 1e-8, 1e-4,1],
-        'alpha': [None, 0,0.2,0.8,1],
+        'lambda': [0, 1e-8, 1e-4],
+        'alpha': [0,0.2,0.8],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # FIX! will n/a be like NaN and make covtype break?
@@ -65,7 +65,7 @@ class Basic(unittest.TestCase):
         for trial in range(20):
             # default
             colX = 0
-            kwargs = {'y': 54, 'case': 1}
+            kwargs = {'y': 54, 'case': 1, 'lambda': 0, 'alpha': 0}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -77,8 +77,9 @@ class Basic(unittest.TestCase):
 
             # if case_mode=n/a the browser doesn't allow case
             # basically simplifies to always needing 'case" ..for covtype
-            if ('case' not in kwargs) or (kwargs['case'] is None):
-                kwargs['case'] = 1
+            if ('case_mode' in kwargs):
+                if ('case' not in kwargs) or (kwargs['case'] is None):
+                    kwargs['case'] = 1
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)

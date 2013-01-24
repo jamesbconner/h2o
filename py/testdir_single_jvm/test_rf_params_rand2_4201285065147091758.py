@@ -13,7 +13,7 @@ import h2o, h2o_cmd
 # FIX! binLimit causes fail if == 1
 print "Temporarily not using binLimit=1 to 3"
 paramDict = {
-    'class': [None,54],
+    'response_variable': [None,54],
     'class_weights': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2'],
     'ntree': [1,3,7,23],
     'model_key': ['model_keyA', '012345', '__hello'],
@@ -57,7 +57,7 @@ class Basic(unittest.TestCase):
                 kwargs[randomKey] = randomValue
 
             print kwargs
-            h2o_cmd.runRF(timeoutSecs=70, csvPathname=csvPathname, **kwargs)
+            h2o_cmd.runRF(timeoutSecs=120, csvPathname=csvPathname, **kwargs)
             print "Trial #", trial, "completed"
 
 if __name__ == '__main__':

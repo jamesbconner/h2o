@@ -38,13 +38,13 @@ class Basic(unittest.TestCase):
         print "y:", y
         
         kwargs = {
-            'x': x, 'y':  y, 'xval': 2, 
+            'x': x, 'y':  y, 'num_cross_validation_folds': 2, 
             'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',
             'thresholds': '0:1:0.01'
             }
-        # fails with xval
-        print "Not doing xval with benign. Fails with 'unable to solve?'"
+        # fails with num_cross_validation_folds
+        print "Not doing num_cross_validation_folds with benign. Fails with 'unable to solve?'"
 
         gg = h2o_cmd.runGLMGridOnly(parseKey=parseKey, timeoutSecs=120, **kwargs)
         # check the first in the models list. It should be the best
@@ -81,7 +81,7 @@ class Basic(unittest.TestCase):
         # colon separated is min/max/step
         # FIX! have to update other GLMGrid tests
         kwargs = {
-            'x': x, 'y':  y, 'xval': 2, 
+            'x': x, 'y':  y, 'num_cross_validation_folds': 2, 
             'beta_epsilon': 1e-4,
             'lambda': '1e-8:1e3:100', 
             'alpha': '0,0.5,1',

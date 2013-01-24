@@ -14,7 +14,7 @@ import h2o, h2o_cmd
 # FIX! make binLimit minimum of 2 for now? bug with 1?
 print "Temporarily not using bin_limit=1 to 3"
 paramDict = {
-    'class': [None,10],
+    'response_variable': [None,10],
     'class_weights': [None,'1=2','2=2','3=2','4=2','5=2','6=2','7=2','8=2'],
     'ntree': [None,1,10,100],
     'model_key': ['model_keyA', '012345', '__hello'],

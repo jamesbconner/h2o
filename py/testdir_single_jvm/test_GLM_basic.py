@@ -37,8 +37,8 @@ class Basic(unittest.TestCase):
                 print "y:", y
                 
                 kwargs = {'x': x, 'y':  y}
-                # fails with xval
-                print "Not doing xval with benign. Fails with 'unable to solve?'"
+                # fails with num_cross_validation_folds
+                print "Not doing num_cross_validation_folds with benign. Fails with 'unable to solve?'"
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=5, **kwargs)
                 # no longer look at STR?
                 h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
@@ -68,7 +68,7 @@ class Basic(unittest.TestCase):
                 print "\nx:", x
                 print "y:", y
 
-                kwargs = {'x': x, 'y':  y, 'xval': 5}
+                kwargs = {'x': x, 'y':  y, 'num_cross_validation_folds': 5}
                 glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=2, **kwargs)
                 # ID,CAPSULE,AGE,RACE,DPROS,DCAPS,PSA,VOL,GLEASON
                 h2o_glm.simpleCheckGLM(self, glm, 'AGE', **kwargs)

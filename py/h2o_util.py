@@ -70,8 +70,22 @@ def file_spaces_to_comma(csvPathname1, csvPathname2):
         infile = open(csvPathname1, 'r')
         outfile = open(csvPathname2,'w') # existing file gets erased
         for line in infile.readlines():
-            line = re.sub(r' +',r',',line)
-            outfile.write(line)
+            outfile.write(re.sub(r' +',r',',line))
         infile.close()
         outfile.close()
         print "\n" + csvPathname1 + " with space(s)->comma to " + csvPathname2
+
+def file_clean_for_R(csvPathname1, csvPathname2):
+        infile = open(csvPathname1, 'r')
+        outfile = open(csvPathname2,'w') # existing file gets erased
+        for line in infile.readlines():
+            # 1) remove comments
+            if not line.startswith('#'): 
+                # 2) remove various lineends and whitespace (leading and trailing)..make it unix linend
+                line = line.strip(" \n\r") + "\n"
+                # 3) change spaces to comma (don't worry about spaces in enums..don't have them for now)
+                line = re.sub(r' +',r',',line)
+                outfile.write(line)
+        infile.close()
+        outfile.close()
+        print "\n" + csvPathname1 + " cleaned for R to " + csvPathname2
