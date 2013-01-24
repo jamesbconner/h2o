@@ -64,7 +64,9 @@ class Basic(unittest.TestCase):
             csvPathname4 = SYNDATASETS_DIR + '/' + csvFilename + '_4.csv'
             h2o_util.file_spaces_to_comma(csvPathname3, csvPathname4)
 
-            kwargs = {'xval': 0, 'y': y, 'family': family, 'lambda': 1e4, 'link': 'familyDefault'}
+            kwargs = {'xval': 0, 'y': y, 'family': family, 'link': 'familyDefault',
+                'alpha': 0, 'lambda': 0}
+
             if x is not None:
                 kwargs['x'] = x
 
