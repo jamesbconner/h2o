@@ -8,14 +8,12 @@ import h2o_glm
 
 def define_params():
     paramDict = {
-        # 'x': ['0:3','14:17','5:10',0,1,15,33],
-        'x': [0,1,15,33],
         # 'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'family': [None, 'gaussian', 'binomial', 'poisson'],
         'xval': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 0, 1e-4,1],
-        'alpha': [None, 0,0.3,1],
+        'lambda': [0, 1e-4],
+        'alpha': [0,0.5,0.75],
         # new?
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
@@ -52,13 +50,11 @@ class Basic(unittest.TestCase):
         print "\nUsing random seed:", SEED
         paramDict = define_params()
         for trial in range(20):
-            # default
-            colX = 0
             # form random selections of GLM parameters
             # always need Y=54. and always need some xval (which can be overwritten)
             # with a different choice. we need the xval to get the error details
             # in the json(below)
-            kwargs = {'y': 54, 'lambda': 1e4, 'case': 1}
+            kwargs = {'y': 54, 'alpha': 0, 'lambda': 0, 'case': 1}
             randomGroupSize = random.randint(1,len(paramDict))
             for i in range(randomGroupSize):
                 randomKey = random.choice(paramDict.keys())
@@ -66,23 +62,10 @@ class Basic(unittest.TestCase):
                 randomValue = random.choice(randomV)
                 kwargs[randomKey] = randomValue
 
-                if 1==1:
-                    if (randomKey=='x'):
-                        colX = randomValue
-                else:
-                    if (randomKey=='x'):
-                        # keep track of what column we're picking
-                        # don't track a column if we're using a range (range had a GLM bug, so have to test)
-                        # the shared check code knows to ignore colX if None, now.
-                        if ':' in randomValue:
-                            colX = None
-                        else:
-                            colX = randomValue
-
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
             # pass the kwargs with all the params, so we know what we asked for!
-            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 

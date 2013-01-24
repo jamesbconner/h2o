@@ -86,16 +86,16 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
     # FIX! temporary hack to deal with disappearing/renaming columns in GLM
     if colX is not None:
         absXCoeff = abs(float(coefficients[str(colX)]))
-        self.assertGreater(absXCoeff, 1e-18, (
+        self.assertGreater(absXCoeff, 1e-26, (
             "abs. value of GLM coefficients['" + str(colX) + "'] is " +
-            str(absXCoeff) + ", not >= 1e-18 for X=" + str(colX)
+            str(absXCoeff) + ", not >= 1e-26 for X=" + str(colX)
             ))
 
     # intercept is buried in there too
     absIntercept = abs(float(intercept))
-    self.assertGreater(absIntercept, 1e-18, (
+    self.assertGreater(absIntercept, 1e-26, (
         "abs. value of GLM coefficients['Intercept'] is " +
-        str(absIntercept) + ", not >= 1e-18 for Intercept"
+        str(absIntercept) + ", not >= 1e-26 for Intercept"
                 ))
 
     # this is good if we just want min or max
@@ -119,8 +119,8 @@ def simpleCheckGLM(self, glm, colX, allowFailWarning=False, **kwargs):
             v = coefficients[c]
             s += abs(float(v))
 
-        self.assertGreater(s, 1e-18, (
-            "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-18"
+        self.assertGreater(s, 1e-26, (
+            "sum of abs. value of GLM coefficients/intercept is " + str(s) + ", not >= 1e-26"
             ))
 
     return (warnings, cList, intercept)
