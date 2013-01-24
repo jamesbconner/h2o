@@ -50,6 +50,7 @@ public class GLMTest extends TestUtil {
     m.compute();
     m.validateOn(va, null,THRESHOLDS);// Validate...
     JsonObject glm = m.toJson();
+    //System.out.println(glm.toString());
     return glm;
   }
 
@@ -238,7 +239,7 @@ public class GLMTest extends TestUtil {
     // Compute the coefficients
     LSMSolver lsmsx = LSMSolver.makeElasticNetSolver(LSMSolver.DEFAULT_LAMBDA);
     JsonObject glm = computeGLMlog( lsmsx, va, false );
-    
+
     // From the validations get the chosen threshold
     final JsonArray vals = glm.get("validations").getAsJsonArray();
     JsonElement val = vals.get(0); // Get first validation
@@ -287,7 +288,7 @@ public class GLMTest extends TestUtil {
                  new String[]{ "Low", "Med", "High", "Low", "Med", "High", "Low", "Med", "High" },
                  new byte  []{     0,     0,      1,     0,     1,      1,     0,     0,     1  });
 
-      LSMSolver lsms = LSMSolver.makeSolver(); // Default normalization of NONE
+      LSMSolver lsms = LSMSolver.makeSolver(1e-8,0.1); // Default normalization of NONE
       JsonObject glm = computeGLMlog(lsms,va,true); // Solve it!
       JsonObject jcoefs = glm.get("coefficients").getAsJsonObject();
       double icept = jcoefs.get("Intercept").getAsDouble();
@@ -313,6 +314,6 @@ public class GLMTest extends TestUtil {
     // by 1, plus the intercept.
     double coef = jcoefs.get("0."+category).getAsDouble();
     double predict = 1.0/(1.0+Math.exp(-(coef*1.0/* + all other terms are 0 */+icept)));
-    assertEquals(expected,predict,0.000001);
+    assertEquals(expected,predict,0.0001);
   }
 }
