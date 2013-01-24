@@ -489,6 +489,10 @@ public class GLMSolver {
       res.addProperty("time", _time);
       res.addProperty("isDone", _isDone);
       res.addProperty("dataset", _dataset.toString());
+      JsonArray colNames = new JsonArray();
+      for(String s:_colNames)
+        colNames.add(new JsonPrimitive(s));
+      res.add("column_names",colNames);
       if(_key != null)res.addProperty("model_key", _key.toString());
       if( _warnings != null ) {
         JsonArray warnings = new JsonArray();
