@@ -10,8 +10,8 @@ def define_params():
         'family': ['gaussian'],
         'xval': [2,3,4,9,15],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 1e-8, 1e-4,1],
-        'alpha': [None, 0,0.5,1],
+        'lambda': [1e-8, 1e-4],
+        'alpha': [0,0.5,0.75],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # inverse and log causing problems
@@ -67,7 +67,7 @@ class Basic(unittest.TestCase):
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=120, parseKey=parseKey, **kwargs)
-            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 
