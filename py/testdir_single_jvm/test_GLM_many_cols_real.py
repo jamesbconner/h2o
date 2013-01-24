@@ -61,21 +61,7 @@ class Basic(unittest.TestCase):
             (1000, 301, 'cC', 300),
             (1000, 401, 'cD', 300),
             (1000, 501, 'cE', 300),
-            (1000, 601, 'cF', 300),
-            (1000, 701, 'cG', 300),
-            (1000, 801, 'cH', 300),
-            (1000, 901, 'cI', 300),
             (1000, 1001, 'cJ', 300),
-            (1000, 2001, 'cK', 300),
-            (1000, 3001, 'cL', 300),
-            (1000, 4001, 'cM', 300),
-            (1000, 5001, 'cN', 300),
-            (100, 6001, 'cO', 300),
-            (100, 7001, 'cP', 300),
-            (100, 8001, 'cQ', 300),
-            (100, 9001, 'cR', 300),
-            (100, 10001, 'cS', 300),
-            (100, 11001, 'cT', 300),
             ]
 
         ### h2b.browseTheCloud()
@@ -100,7 +86,7 @@ class Basic(unittest.TestCase):
             start = time.time()
             glm = h2o_cmd.runGLMOnly(parseKey=parseKey, timeoutSecs=timeoutSecs, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
-            h2o_glm.simpleCheckGLM(self, glm, 13, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
 
             if not h2o.browse_disable:
                 h2b.browseJsonHistoryAsUrlLastMatch("Inspect")
