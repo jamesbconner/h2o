@@ -19,8 +19,7 @@ import time
 # I suppose these args will be ignored with old??
 argcaseList = [
     {   'x': '0,1,2,3,4,5,6,7,8,9,10,11',
-        'y': 107,
-        'case': 1,
+        'y': 106,
         'family': 'gaussian',
         'lambda': 1.0E-5,
         'max_iter': 50,

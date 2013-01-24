@@ -8,13 +8,11 @@ import h2o_glm
 
 def define_params():
     paramDict = {
-        # 'x': ['0:3','14:17','5:10',0,1,15,33],
-        'x': [0,1,15,33],
         'family': [None, 'gaussian', 'binomial', 'poisson', 'gamma'],
         'xval': [2,3,4,9],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
-        'lambda': [None, 0,1e-4,1,10,1e4],
-        'alpha': [None, 0,0.8,1],
+        'lambda': [0,1e-4,1],
+        'alpha': [0,0.8,1],
         # new?
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
@@ -64,18 +62,8 @@ class Basic(unittest.TestCase):
                 randomValue = random.choice(randomV)
                 kwargs[randomKey] = randomValue
 
-                if 1==1:
-                    if (randomKey=='x'):
-                        colX = randomValue
-                else:
-                    if (randomKey=='x'):
-                        # keep track of what column we're picking
-                        # don't track a column if we're using a range (range had a GLM bug, so have to test)
-                        # the shared check code knows to ignore colX if None, now.
-                        if ':' in randomValue:
-                            colX = None
-                        else:
-                            colX = randomValue
+                if (randomKey=='x'):
+                    colX = randomValue
 
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)

@@ -77,8 +77,9 @@ class Basic(unittest.TestCase):
 
             # if case_mode=n/a the browser doesn't allow case
             # basically simplifies to always needing 'case" ..for covtype
-            if ('case' not in kwargs) or (kwargs['case'] is None):
-                kwargs['case'] = 1
+            if ('case_mode' in kwargs):
+                if ('case' not in kwargs) or (kwargs['case'] is None):
+                    kwargs['case'] = 1
             
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
