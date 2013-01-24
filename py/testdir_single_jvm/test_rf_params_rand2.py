@@ -25,7 +25,7 @@ paramDict = {
     # legal max also.
     'features': [None,1,3,5,7,9,11,13,17,19,23,37,53],
     'exclusive_split_limit': [None,0,3,5],
-    'stratify': [None,0,1,1,1,1,1,1,1,1,1],
+    # 'stratify': [None,0,1,1,1,1,1,1,1,1,1],
     'strata': [
         None,
         "0:10",
@@ -46,7 +46,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_loop_random_param_covtype(self):
+    def test_rf_params_rand2(self):
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
 
         # for determinism, I guess we should spit out the seed?

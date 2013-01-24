@@ -23,7 +23,7 @@ def define_params():
         # 'lambda': [None, 1e-8, 1e-4,1,10,1e4],
         # Update: None is a problem with 'fail to converge'
         'lambda': [0, 1e-8, 1e-4],
-        'alpha': [None, 0,0.2,0.8],
+        'alpha': [0,0.2,0.8],
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
         # FIX! will n/a be like NaN and make covtype break?
