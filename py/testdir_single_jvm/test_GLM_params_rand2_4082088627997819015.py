@@ -8,7 +8,7 @@ def define_params():
     paramDict = {
         'x': [0,1,15,33,34],
         'family': ['binomial'],
-        'num_cross_validation_folds': [2,3,4,9,15],
+        'num_cross_validation_folds': [2,3],
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'lambda': [1e-8, 1e-4,1],
         'alpha': [0,0.5,0.75],
@@ -32,7 +32,7 @@ class Basic(unittest.TestCase):
 
     def test_loop_random_param_covtype(self):
         csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key='covtype')
 
         # for determinism, I guess we should spit out the seed?
         # random.seed(SEED)

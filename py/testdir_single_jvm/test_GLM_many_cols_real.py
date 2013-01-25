@@ -19,13 +19,13 @@ def write_syn_dataset(csvPathname, rowCount, colCount, SEED):
             rowData.append(ri1 + 0.1) # odd bias shift
 
         # sum the row, and make output 1 if > (5 * rowCount)
-        if (rowTotal > (0.5 * colCount)): 
+        if (rowTotal > (0.52 * colCount)): 
             result = 1
         else:
             result = 0
 
         rowData.append(result)
-        print colCount, rowTotal, result
+        ### print colCount, rowTotal, result
         rowDataCsv = ",".join(map(str,rowData))
         dsf.write(rowDataCsv + "\n")
 
@@ -52,7 +52,7 @@ class Basic(unittest.TestCase):
     def tearDownClass(cls):
         h2o.tear_down_cloud()
 
-    def test_many_cols_with_syn(self):
+    def test_many_cols_real(self):
         SYNDATASETS_DIR = h2o.make_syn_dir()
         tryList = [
             (1000, 100, 'cA', 300),

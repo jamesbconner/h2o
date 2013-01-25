@@ -396,6 +396,7 @@ def check_sandbox_for_errors():
 
             sandFile.close()
 
+    sys.stdout.flush()
     return (foundAnyBadness) # can test and cause exception
 
 
