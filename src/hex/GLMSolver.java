@@ -140,12 +140,26 @@ public class GLMSolver {
   public static enum Family {
     gaussian(Link.identity,null),
     binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
-    poisson(Link.log,null),
-    gamma(Link.inverse,null);
+    poisson(Link.log,null);
+    //gamma(Link.inverse,null);
     public final Link defaultLink;
     public final double [] defaultArgs;
     Family(Link l, double [] d){defaultLink = l; defaultArgs = d;}
 
+    public double aic(double dev, long nobs, int betaLen){
+      switch(this){
+      case gaussian:
+        return nobs *(Math.log(dev/nobs * 2 *Math.PI)+1)+2 + 2*betaLen;
+      case binomial:
+        return 2*betaLen + dev;
+      case poisson:
+        return 2*betaLen + dev;
+//      case gamma:
+//        return Double.NaN;
+      default:
+        throw new Error("unknown family Id " + this);
+      }
+    }
     public double variance(double mu){
       switch(this){
       case gaussian:
@@ -155,8 +169,8 @@ public class GLMSolver {
         return mu*(1-mu);
       case poisson:
         return mu;
-      case gamma:
-        return mu*mu;
+//      case gamma:
+//        return mu*mu;
       default:
         throw new Error("unknown family Id " + this);
       }
@@ -181,9 +195,9 @@ public class GLMSolver {
         //ym = Math.exp(ym);
         if(yr == 0)return 2*ym;
         return 2*((yr * Math.log(yr/ym)) - (yr - ym));
-      case gamma:
-        if(yr == 0)return -2;
-        return -2*(Math.log(yr/ym) - (yr - ym)/ym);
+//      case gamma:
+//        if(yr == 0)return -2;
+//        return -2*(Math.log(yr/ym) - (yr - ym)/ym);
       default:
         throw new Error("unknown family Id " + this);
       }
@@ -445,7 +459,7 @@ public class GLMSolver {
       valTsk._beta = _beta;
       valTsk._caseMode = _glmParams._caseMode;
       valTsk._caseVal = _glmParams._caseVal;
-
+      valTsk._ymu = ary._cols[colIds[colIds.length-1]]._mean;
       valTsk._thresholds = thresholds;
       valTsk.invoke(ary._key);
       GLMValidation val = new GLMValidation(valTsk);
@@ -766,12 +780,12 @@ public class GLMSolver {
     Key _dataKey;
     Key _modelKey;
     Sampling _s;
-    public long _n;
-    public double _dof;
-    public double _aic;
-    public double _deviance;
-    public double _nullDeviance;
-    public double _err;
+    public final long _n;
+    public final double _dof;
+    public final double _aic;
+    public final double _deviance;
+    public final double _nullDeviance;
+    public final double _err;
     ErrMetric _errMetric = ErrMetric.SUMC;
     double _auc;
     public ConfusionMatrix [] _cm;
@@ -780,18 +794,22 @@ public class GLMSolver {
 
     public GLMValidation(GLMValidationTask tsk){
       _n = tsk._n;
-      _nullDeviance = tsk._nullDeviance;
       _deviance = tsk._deviance;
       _err = tsk._err;
       _cm = tsk._cm;
       _dof = _n-1-tsk._beta.length;
-      _aic = 2*(tsk._beta.length+1) + _deviance;
+      _aic = tsk._f.aic(_deviance, _n, tsk._beta.length);
       _thresholds = tsk._thresholds;
       _dataKey = tsk._aryKey;
       if(_cm != null){
         computeBestThreshold(ErrMetric.SUMC);
         computeAUC();
       }
+      if(tsk._f == Family.binomial){
+        double p = tsk._caseCount/(double)tsk._n;
+        _nullDeviance = -2*(tsk._caseCount*Math.log(p) + (tsk._n - tsk._caseCount)*Math.log(1-p));
+      } else
+        _nullDeviance = tsk._nullDeviance;
     }
 
 
@@ -811,20 +829,28 @@ public class GLMSolver {
         _aic = Double.NaN;
         _dof = Double.NaN;
         _auc = Double.NaN;
+        _deviance = Double.NaN;
+        _nullDeviance = Double.NaN;
+        _err = Double.NaN;
+        _n = -1;
         return;
       }
+      long n = 0;
+      double nDev = 0;
+      double dev = 0;
+      double err = 0;
       if(models[0]._vals[0]._cm != null){
         int nthresholds = models[0]._vals[0]._cm.length;
         _cm = new ConfusionMatrix[nthresholds];
         for(int t = 0; t < nthresholds; ++t)
           _cm[t] = models[0]._vals[0]._cm[t];
-        _n += models[0]._vals[0]._n;
-        _deviance = models[0]._vals[0]._deviance;
-        _nullDeviance = models[0]._vals[0]._nullDeviance;
+        n += models[0]._vals[0]._n;
+        dev = models[0]._vals[0]._deviance;
+        nDev = models[0]._vals[0]._nullDeviance;
         for(i = 1; i < models.length; ++i){
-          _n += models[i]._vals[0]._n;
-          _deviance += models[0]._vals[0]._deviance;
-          _nullDeviance += models[0]._vals[0]._nullDeviance;
+          n += models[i]._vals[0]._n;
+          dev += models[0]._vals[0]._deviance;
+          nDev += models[0]._vals[0]._nullDeviance;
           for(int t = 0; t < nthresholds; ++t)
             _cm[t].add(models[i]._vals[0]._cm[t]);
         }
@@ -833,18 +859,20 @@ public class GLMSolver {
         computeAUC();
       } else {
         for(GLMModel xm:models){
-          _n += xm._vals[0]._n;
-          _deviance += xm._vals[0]._deviance;
-          _nullDeviance += xm._vals[0]._nullDeviance;
-          _err += xm._vals[0]._err;
+          n += xm._vals[0]._n;
+          dev += xm._vals[0]._deviance;
+          nDev += xm._vals[0]._nullDeviance;
+          err += xm._vals[0]._err;
         }
       }
-      _aic = 2*(models[0]._beta.length+1) + _deviance;
+      _err = err;
+      _deviance = dev;
+      _nullDeviance = nDev;
+      _n = n;
+      _aic = models[0]._glmParams._f.aic(_deviance, _n, models[0]._beta.length);
       _dof = _n - models[0]._beta.length - 1;
-
     }
 
-    public GLMValidation(){}
     public Key dataKey() {return _dataKey;}
     public Key modelKey() {return _modelKey;}
 
@@ -1011,6 +1039,7 @@ public class GLMSolver {
     double _w;
     double _caseVal;
     CaseMode _caseMode;
+    long _caseCount;
 
     public GLMValidationTask(Key aryKey, int [] colIds){
       super(aryKey,colIds);
@@ -1034,6 +1063,8 @@ public class GLMSolver {
       ym = _l.linkInv(ym);
       if(_caseMode != CaseMode.none)
         yr = _caseMode.isCase(yr, _caseVal)?1:0;
+      if(yr == 1)
+        ++_caseCount;
       _deviance += _f.deviance(yr, ym);
       _nullDeviance += _f.deviance(yr, _ymu);
       if(_f == Family.binomial) {
@@ -1055,6 +1086,7 @@ public class GLMSolver {
       _nullDeviance += other._nullDeviance;
       _deviance += other._deviance;
       _err += other._err;
+      _caseCount += other._caseCount;
       if(_cm != null) {
         for(int i = 0; i < _thresholds.length; ++i)
           _cm[i].add(other._cm[i]);
