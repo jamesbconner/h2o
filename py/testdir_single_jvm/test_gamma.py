@@ -17,7 +17,7 @@ def define_params():
         'thresholds': [0.1, 0.5, 0.7, 0.9],
         'lambda': [1e-4],
         # 0 is L2. 1 is L1. Inbetween is Elastic
-        'alpha': [0,0.5, 1],
+        'alpha': [0,0.5,0.75],
         # coefficient precision
         'beta_epsilon': [None, 0.0001],
         'case': [1,2,3,4,5,6,7],
@@ -76,7 +76,7 @@ class Basic(unittest.TestCase):
             start = time.time()
             glm = h2o_cmd.runGLMOnly(timeoutSecs=70, parseKey=parseKey, **kwargs)
             # pass the kwargs with all the params, so we know what we asked for!
-            h2o_glm.simpleCheckGLM(self, glm, colX, **kwargs)
+            h2o_glm.simpleCheckGLM(self, glm, None, **kwargs)
             print "glm end on ", csvPathname, 'took', time.time() - start, 'seconds'
             print "Trial #", trial, "completed\n"
 
