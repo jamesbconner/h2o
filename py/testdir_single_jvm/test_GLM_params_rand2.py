@@ -37,7 +37,7 @@ class Basic(unittest.TestCase):
     def test_GLM_params_rand2(self):
         # csvPathname = h2o.find_dataset('UCI/UCI-large/covtype/covtype.data')
         csvPathname = h2o.find_file('smalldata/covtype/covtype.20k.data')
-        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname)
+        parseKey = h2o_cmd.parseFile(csvPathname=csvPathname, key="covtype.20k")
 
         # for determinism, I guess we should spit out the seed?
         # random.seed(SEED)
