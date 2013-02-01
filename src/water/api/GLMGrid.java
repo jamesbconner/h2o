@@ -1,14 +1,16 @@
 package water.api;
 
+import hex.DGLM.CaseMode;
+import hex.DGLM.Family;
 import hex.*;
-import hex.GLMSolver.*;
+import hex.GLMSolver.GLMModel;
+import hex.GLMSolver.OldGLMParams;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.*;
 
 import water.*;
-import water.api.RequestArguments.*;
 import water.web.RString;
 
 import com.google.gson.JsonObject;
@@ -91,7 +93,7 @@ public class GLMGrid extends Request {
     // self, because it's almost always updated locally.
     Key taskey = Key.make("Task"+UUID.randomUUID().toString(),(byte)0,Key.TASK,H2O.SELF);
 
-    GLMParams glmp = new GLMParams();
+    OldGLMParams glmp = new OldGLMParams();
     glmp._betaEps = _betaEps.value();
     glmp._maxIter = _maxIter.value();
     glmp._caseMode = _caseMode.valid()?_caseMode.value():CaseMode.none;
@@ -106,7 +108,7 @@ public class GLMGrid extends Request {
                         getCols(_x.value(), _y.value()),
                         _lambda.value()._arr, // Grid ranges
                         _alpha.value()._arr,  // Grid ranges
-                        _thresholds.value()._arr,
+                        (_thresholds.value() != null)?_thresholds.value()._arr:null,
                         _xval.value());
 
     // Put the task Out There for all to find

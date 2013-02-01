@@ -1,8 +1,8 @@
 package water.api;
 
-import hex.GLMSolver.Family;
+import hex.DGLM.Family;
+import hex.DLSM.ADMMSolver;
 import hex.GLMSolver.GLMModel;
-import hex.*;
 
 import java.util.Map;
 
@@ -32,7 +32,7 @@ public class GLMGridProgress extends Request {
     JsonArray models = new JsonArray();
     for( GLMModel m : status.computedModels() ) {
       JsonObject o = new JsonObject();
-      LSMSolver lsm = m._solver;
+      ADMMSolver lsm = m._solver;
       o.addProperty(KEY, m.key().toString());
       o.addProperty(LAMBDA, lsm._lambda);
       o.addProperty(ALPHA, lsm._alpha);

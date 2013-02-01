@@ -1,13 +1,18 @@
 package water.api;
 
 import hex.*;
-import hex.GLMSolver.CaseMode;
-import hex.GLMSolver.Family;
+import hex.DGLM.CaseMode;
+import hex.DGLM.Family;
+import hex.DGLM.GLMParams;
+import hex.DGLM.Link;
+import hex.DLSM.ADMMSolver;
+import hex.DLSM.GeneralizedGradientSolver;
+import hex.DLSM.LSMSolver;
 import hex.GLMSolver.GLMException;
 import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.GLMParams;
 import hex.GLMSolver.GLMValidation;
-import hex.GLMSolver.Link;
+import hex.GLMSolver.OldGLMParams;
+import hex.NewRowVecTask.DataFrame;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -29,8 +34,8 @@ public class GLM extends Request {
   protected final H2OGLMModelKey _modelKey = new H2OGLMModelKey(MODEL_KEY,false);
   protected final EnumArgument<Family> _family = new EnumArgument(FAMILY,Family.gaussian,true);
   protected final LinkArg _link = new LinkArg(_family,LINK);
-  protected final Real _lambda = new Real(LAMBDA, LSMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
-  protected final Real _alpha = new Real(ALPHA, LSMSolver.DEFAULT_ALPHA, 0, 1);
+  protected final Real _lambda = new Real(LAMBDA, ADMMSolver.DEFAULT_LAMBDA); // TODO I do not know the bounds
+  protected final Real _alpha = new Real(ALPHA, ADMMSolver.DEFAULT_ALPHA, 0, 1);
   protected final Real _betaEps = new Real(BETA_EPS,GLMSolver.DEFAULT_BETA_EPS);
   protected final Int _maxIter = new Int(MAX_ITER, GLMSolver.DEFAULT_MAX_ITER, 1, 1000000);
   protected final Real _caseWeight = new Real(WEIGHT,1.0);
@@ -123,8 +128,8 @@ public class GLM extends Request {
     return res;
   }
 
-  GLMParams getGLMParams(){
-    GLMParams res = new GLMParams();
+  OldGLMParams getGLMParams(){
+    OldGLMParams res = new OldGLMParams();
     res._f = _family.value();
     res._l = _link.value();
     if( res._l == Link.familyDefault )
@@ -149,8 +154,22 @@ public class GLM extends Request {
       res.addProperty("key", ary._key.toString());
       res.addProperty("h2o", H2O.SELF.toString());
 
-      GLMParams glmParams = getGLMParams();
-      LSMSolver lsm = LSMSolver.makeSolver(_lambda.value(),_alpha.value());
+      OldGLMParams glmParams = getGLMParams();
+
+      double lambda = _lambda.value();
+      double alpha = _alpha.value();
+      double betaEps = _betaEps.value();
+      int [] xcols = Arrays.copyOf(columns, columns.length-1);
+      int ycol = columns[columns.length-1];
+      DataFrame data = new DataFrame(ary, xcols, ycol,true);
+      //LSMSolver solver= ADMMSolver.makeSolver(lambda, alpha);//new GeneralizedGradientSolver(lambda,alpha,betaEps,data.expandedVectorSize());
+      LSMSolver solver = new GeneralizedGradientSolver(lambda,alpha,betaEps,data.expandedVectorSize());
+      GLMParams glmp = new GLMParams(_family.value(), _link.value());
+      glmp._caseMode = _caseMode.value();
+      if(_case.specified())glmp._caseVal= _case.value();
+      hex.DGLM.GLMModel newM = DGLM.buildModel(data, glmp, solver,null);
+      System.out.println(newM.toJson());
+      ADMMSolver lsm = ADMMSolver.makeSolver(_lambda.value(),_alpha.value());
       GLMModel m = new GLMModel(ary, columns, lsm, glmParams, null);
       if(_modelKey.specified()){
         GLMModel previousModel = _modelKey.value();
@@ -252,7 +271,7 @@ public class GLM extends Request {
 
     private static String glmParamsHTML( GLMModel m ) {
       StringBuilder sb = new StringBuilder();
-      GLMParams glmp = m._glmParams;
+      OldGLMParams glmp = m._glmParams;
       parm(sb,"family",glmp._f);
       parm(sb,"link",glmp._l);
       parm(sb,EPSILON,glmp._betaEps);
@@ -266,7 +285,7 @@ public class GLM extends Request {
 
     private static String lsmParamsHTML( GLMModel m ) {
       StringBuilder sb = new StringBuilder();
-      LSMSolver lsm = m._solver;
+      ADMMSolver lsm = m._solver;
       parm(sb,LAMBDA,lsm._lambda);
       parm(sb,ALPHA  ,lsm._alpha);
       return sb.toString();

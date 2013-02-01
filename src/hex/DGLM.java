@@ -1,804 +1,889 @@
-//package hex;
-//
-//import hex.DLSM.DLSM_SingularMatrixException;
-//import hex.DLSM.LSMTask;
-//import hex.DLSM.LSM_Params;
-//import hex.DLSM.Norm;
-//import hex.HexDataFrame.Sampling;
-//import hex.Models.BinaryClassifierValidation;
-//import hex.RowVecTask.DataPreprocessing;
-//import init.H2OSerializable;
-//
-//import java.io.DataInputStream;
-//import java.io.DataOutputStream;
-//import java.util.Arrays;
-//import java.util.Map.Entry;
-//
-//import water.Stream;
-//import water.ValueArray;
-//
-//import com.google.gson.JsonElement;
-//import com.google.gson.JsonObject;
-//
-//
-///**
-// * Distributed General Linear Model solver.
-// *
-// * Implemented as Iterative Reweighted LSM fitting problem. Calls DLSM iteratively until solution is found.
-// *
-// * Goal is to have distributed version of glm from R with few enhancements (L1 and L2 norm).
-// *
-// * Current Limitations:
-// *   * only gaussian, binomial and poisson family supported at the moment.
-// *   * limitations of underlying DLSM apply here as well
-// *
-// * Implemented by extending LSMTask (by IRLSMTask) to transform response variable and to apply weights in flight).
-// *
-// * @author tomasnykodym
-// *
-// */
-//public class DGLM implements Models.ModelBuilder {
-//
-//  public static enum Link {
-//    identity(0),
-//    logit(0),
-//    log(0),
-////    probit(0),
-////    cauchit(0),
-////    cloglog(0),
-////    sqrt(0),
-//    inverse(1.0),
-////    oneOverMu2(0);
-//    ;
-//    public final double defaultBeta;
-//
-//    Link(double b){defaultBeta = b;}
-//  }
-//
-//  // supported families
-//  public static enum Family {
-//    gaussian(Link.identity),
-//    binomial(Link.logit),
-//    poisson(Link.log),
-//    gamma(Link.inverse);
-//    ;
-//    public final Link defaultLink;
-//
-//    Family(Link l){defaultLink = l;}
-//  }
-//
-//
-//
-//  public DGLM(GLM_Params glmPArams, LSM_Params lsmParams) {
-//    _glmParams = glmPArams;
-//    _lsmParams = lsmParams;
-//  }
-//  /**
-//   * Per family variance computation
-//   *
-//   * @param family
-//   * @param mu
-//   * @return
-//   */
-//  public static double variance(Family family, double mu){
-//    switch(family){
-//    case gaussian:
-//      return 1;
-//    case binomial:
-//      assert 0 <= mu && mu <= 1:"unexpected mu:" + mu;
-//      return mu*(1-mu);
-//    case poisson:
-//      return mu;
-//    case gamma:
-//      return mu*mu;
-//    default:
-//      throw new Error("unknown family Id " + family);
-//    }
-//  }
-//
-//
-//  // helper function
-//  static double y_log_y(double y, double mu){
-//    mu = Math.max(Double.MIN_NORMAL, mu);
-//    return (y != 0) ? (y * Math.log(y/mu)) : 0;
-//  }
-//
-//  /**
-//   * Per family deviance computation.
-//   *
-//   * @param family
-//   * @param yr
-//   * @param ym
-//   * @return
-//   */
-//  public static double deviance(Family family, double yr, double ym){
-//    switch(family){
-//    case gaussian:
-//      return (yr - ym)*(yr - ym);
-//    case binomial:
-//      return 2*((y_log_y(yr, ym)) + y_log_y(1-yr, 1-ym));
-//      //return -2*(yr * ym - Math.log(1 + Math.exp(ym)));
-//    case poisson:
-//      //ym = Math.exp(ym);
-//      if(yr == 0)return 2*ym;
-//      return 2*((yr * Math.log(yr/ym)) - (yr - ym));
-//    case gamma:
-//      if(yr == 0)return -2;
-//      return -2*(Math.log(yr/ym) - (yr - ym)/ym);
-//    default:
-//      throw new Error("unknown family Id " + family);
-//    }
-//  }
-//
-//  /**
-//   * Link function computation.
-//   *
-//   * @param linkFunction
-//   * @param x
-//   * @return
-//   */
-//  public static double link(Link linkFunction, double x){
-//   switch(linkFunction){
-//     case identity:
-//       return x;
-//     case logit:
-//       assert 0 <= x && x <= 1;
-//       return Math.log(x/(1 - x));
-//     case log:
-//       return Math.log(x);
-////     case inverse:
-////       return 1/x;
-//     default:
-//       throw new Error("unsupported link function id  " + linkFunction);
-//   }
-//  }
-//
-//  /**
-//   * Link function inverse computation.
-//   *
-//   * @param linkFunction
-//   * @param x
-//   * @return
-//   */
-//  public static double linkInv(Link linkFunction, double x){
-//    switch(linkFunction){
-//      case identity:
-//        return x;
-//      case logit:
-//        return 1.0 / (Math.exp(-x) + 1.0);
-//      case log:
-//        return Math.exp(x);
-//      case inverse:
-//        return 1/x;
-//      default:
-//        throw new Error("unexpected link function id  " + linkFunction);
-//    }
-//   }
-//
-//  /**
-//   * Link function derivative computation.
-//   *
-//   * @param linkFunction
-//   * @param x
-//   * @return
-//   */
-//  public static double linkDeriv(Link linkFunction, double x){
-//    switch(linkFunction){
-//      case identity:
-//        return 1;
-//      case logit:
-//        if( x == 1 || x == 0 ) return MAX_SQRT;
-//        return 1 / (x * (1 - x));
-//      case log:
-//        return (x == 0)?MAX_SQRT:1/x;
-//      case inverse:
-//        return -1/(x*x);
-//      default:
-//        throw new Error("unexpected link function id  " + linkFunction);
-//    }
-//   }
-//
-//
-//  /**
-//   * Additional per-family args to glm.
-//   * @author tomasnykodym
-//   *
-//   */
-//  public static abstract class FamilyArgs implements H2OSerializable {
-//    public JsonObject toJson(){
-//      return new JsonObject();
-//    }
-//    public int wire_len(){return 0;}
-//    public void write(Stream s){}
-//    public void write(DataOutputStream dos){}
-//    public void read(Stream s){}
-//    public void read(DataInputStream dis){}
-//  }
-//
-//  /**
-//   *  Args for binomial family
-//   * @author tomasnykodym
-//   *
-//   */
-//  public static class BinomialArgs extends FamilyArgs {
-//    double _threshold = 0.5; // decision threshold for classification/validation
-//    double _case = 1.0; // value to be mapped to 1 (en eeverything else to 0).
-//    double [] _wt = new double[]{1.0,1.0};
-//
-//    public BinomialArgs(double t, double c, double [] wt){
-//      _threshold = t;
-//      _case = c;
-//      _wt = wt;
-//    }
-//    @Override
-//    public JsonObject toJson(){
-//      JsonObject res = new JsonObject();
-//      res.addProperty("threshold", _threshold);
-//      res.addProperty("case", _case);
-//      res.addProperty("weights", Arrays.toString(_wt));
-//      return res;
-//    }
-//  }
-//
-//  /**
-//   * Paramters for GLM.
-//   * @author tomasnykodym
-//   *
-//   */
-//  public static class GLM_Params implements H2OSerializable {
-//    public static final int DEFAULT_MAX_ITER = 50;
-//    public double _betaEps = 1e-3; // precision level for beta
-//    public int _family = Family.gaussian.ordinal();
-//    public int _link = Link.identity.ordinal();
-//    public int _preprocessing = DataPreprocessing.AUTO.ordinal();
-//    public int _maxIter = DEFAULT_MAX_ITER;
-//    public FamilyArgs _fargs;
-//    public double [] _weights;
-//
-//    public GLM_Params(){}
-//    public GLM_Params(Family f, FamilyArgs fargs, Link l, int maxIter, double beps, DataPreprocessing p){
-//      _family = f.ordinal();
-//      _fargs = fargs;
-//      _link = l.ordinal();
-//      _maxIter = maxIter;
-//      _betaEps = beps;
-//      _preprocessing = p.ordinal();
-//    }
-//    public JsonObject toJson(){
-//      JsonObject res = new JsonObject();
-//      res.addProperty("betaEps", _betaEps);
-//      res.addProperty("family", Family.values()[_family].toString());
-//      res.addProperty("link", Link.values()[_link].toString());
-//      res.addProperty("prepropcessing", DataPreprocessing.values()[_preprocessing].toString());
-//      res.addProperty("maxIter", _maxIter);
-//      if(_fargs != null){
-//        JsonObject fargsJson = _fargs.toJson();
-//        for(Entry<String,JsonElement> e:fargsJson.entrySet())
-//          res.addProperty(e.getKey(), e.getValue().toString());
-//      }
-//      return res;
-//    }
-//
-//  }
-//
-//  public static class GLSMException extends RuntimeException {
-//    public GLSMException(String msg) {
-//      super(msg);
-//    }
-//  }
-//
-//  private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
-//
-//  Sampling         _sampling;
-//
-//
-//  public static final LSM_Params defaultLSMParams = new LSM_Params();
-//
-//  GLM_Params _glmParams;
-//  LSM_Params _lsmParams;
-//
-//
-///**
-// * Solve glm problem by iterative reweighted least square method.
-// * Repeatedly solves LSM problem with weights given by previous iteration until
-// * a fixed point is reached.
-// */
-//  public GLMModel trainOn(ValueArray ary, int[] colIds, Sampling s) {
-//    if(_lsmParams == null)_lsmParams = defaultLSMParams;
-//    DataPreprocessing dp = DataPreprocessing.values()[_glmParams._preprocessing];
-//    if(_glmParams._preprocessing == DataPreprocessing.AUTO.ordinal()){
-//      // default is to standardize data if using penalty function and do nothing if not
-//      if(_lsmParams.n != Norm.NONE) dp = DataPreprocessing.STANDARDIZE;
-//      else dp = DataPreprocessing.NONE;
-//    }
-//    double[][] pVals = RowVecTask.getDataPreprocessingForColumns(dp, ary, colIds);
-//    if(pVals != null){
-//      // do not preprocess y!!!
-//      pVals[pVals.length-1][0] = 0;
-//      pVals[pVals.length-1][1] = 0;
-//    }
-//    String [] colNames = new String [colIds.length];
-//    for(int i = 0; i < colIds.length; ++i){
-//      colNames[i] = ary.col_name(colIds[i]);
-//      if(colNames[i] == null){
-//        colNames = null;
-//        break;
-//      }
-//    }
-//    //GLM_Model m = (glmParams.family == Family.binomial)? new BinomialModel((BinomialArgs)fargs):new GLM_Model();//colIds, beta, p, gp, lp)
-//    GLMModel m = (_glmParams._family == Family.binomial.ordinal())?new GLMBinomialModel(colNames, colIds, pVals,null,0,_glmParams):new GLMModel(colNames,colIds, pVals, null,0, _glmParams);
-//    if(_glmParams._family == Family.gaussian.ordinal()){
-//      LSMTask tsk = new LSMTask(colIds, s, colIds.length - 1,  _lsmParams.constant, pVals);
-//      tsk.invoke(ary._key);
-//      m._n = tsk._n;
-//      try {
-//        m._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
-//      }catch (DLSM_SingularMatrixException e){
-//        int n = 0;
-//        if(m._warnings != null){
-//          n = m._warnings.length;
-//          m._warnings = Arrays.copyOf(m._warnings, n + 1);
-//        } else
-//          m._warnings = new String[1];
-//        m._warnings[n] = "Failed to compute without normalization due to singular gram matrix. Rerun with L2 regularization and lambda = 1e-5";
-//        m._beta = e.res;
-//      }
-//      ++m._iterations;
-//      return m;
-//    }
-//    double [] beta = new double [colIds.length];
-//    Arrays.fill(beta, Link.values()[_glmParams._link].defaultBeta);
-//    double diff = 0;
-//    long N = 0;
-//    m._ymu = ary.col_mean(colIds[colIds.length-1]);
-//    try{
-//      for(int i = 0; i != _glmParams._maxIter; ++i) {
-//        ++m._iterations;
-//        //System.out.println("iteration: " + i + ", beta = " + Arrays.toString(beta));
-//        IRLSMTask tsk;
-//        switch(Family.values()[_glmParams._family]){
-//        case binomial:
-//          BinomialArgs bargs = (BinomialArgs)_glmParams._fargs;
-//          tsk = new BinomialTask(colIds, s, _lsmParams.constant, beta, pVals, Link.values()[_glmParams._link],bargs);
-//          tsk.invoke(ary._key);
-//          m._ymu = ((BinomialTask)tsk)._caseCount/(double)tsk._n;
-//          break;
-//        default:
-//          tsk = new IRLSMTask(colIds, s, _lsmParams.constant, beta, pVals, Family.values()[_glmParams._family], Link.values()[_glmParams._link]);
-//          tsk.invoke(ary._key);
-//
-//        }
-//        diff = 0;
-//        N = tsk._n;
-//        try {
-//          tsk._beta = DLSM.solveLSM(tsk._xx, tsk._xy, _lsmParams);
-//        }catch (DLSM_SingularMatrixException e){
-//          int n = 0;
-//          if(m._warnings != null){
-//            n = m._warnings.length;
-//            m._warnings = Arrays.copyOf(m._warnings, n + 1);
-//          } else
-//            m._warnings = new String[1];
-//          m._warnings[n] = "Using L2 regularization due to singular gram matrix.";
-//          tsk._beta = e.res;
-//        }
-//        if( beta != null ) for( int j = 0; j < beta.length; ++j )
-//          diff = Math.max(diff, Math.abs(beta[j] - tsk._beta[j]));
-//        else diff = Double.MAX_VALUE;
-//        beta = tsk._beta;
-//        if(diff < _glmParams._betaEps)break;
-//      }
-//    } catch (Exception e) {
-//      if(beta == null)throw new GLSMException("Failed to compute the data: " + e.getMessage());;
-//      int n = 0;
-//      if(m._warnings != null){
-//        n = m._warnings.length;
-//        m._warnings = Arrays.copyOf(m._warnings, n+1);
-//      } else
-//        m._warnings = new String[1];
-//      m._warnings[n] = "Failed to converge due to NaNs";
-//    }
-//    if(diff >= _glmParams._betaEps)m.addWarning("Reached max # iterations: " + _glmParams._maxIter);
-//    m._beta = beta;
-//    m._n = N;
-//    return m;
-//  }
-//
-//  /**
-//   * Task computing one round of logistic regression by iterative least square
-//   * method. Given beta_k, computes beta_(k+1). Works by transforming input
-//   * vector by link function and applying weights equal to inverse of variance
-//   * and  passing the transformed input to LSM.
-//   *
-//   * @author tomasnykodym
-//   *
-//   */
-//  public static class IRLSMTask extends LSMTask {
-//    double[] _beta;
-//    double   _w = 1.0;
-//    double   _origConstant;
-//    int      _f;
-//    int      _l;
-//    transient Family _family;
-//    transient Link _link;
-//
-//    public IRLSMTask() {
-//    } // Empty constructor for the serializers
-//
-//    public IRLSMTask(int[] colIds, Sampling s, int constant, double[] beta,
-//        double[][] pVals, Family f, Link l) {
-//      super(colIds, s, colIds.length - 1, constant, pVals);
-//      _beta = beta;
-//      _f = f.ordinal();
-//      _l = l.ordinal();
-//    }
-//
-//    @Override
-//    public void preMap(int xlen, int nrows) {
-//      super.preMap(xlen, nrows);
-//      _origConstant = _constant;
-//      _family = Family.values()[_f];
-//      _link = Link.values()[_l];
-//    }
-//
-//    /**
-//     * Applies the link function on the input and calls
-//     * underlying LSM.
-//     *
-//     * Two steps are performed here:
-//     * 1) y is replaced by z, which is obtained by
-//     * Taylor expansion at the point of last estimate of y (x'*beta)
-//     * 2) Weight is applied to both x and y. Weight is the square root of inverse of variance of y at this
-//     * data point according to our model
-//     *
-//     */
-//    @Override
-//    public void processRow(double[] x) {
-//      double y = x[x.length-1];
-//      // transform input to the GLR according to Olga's slides
-//      // (glm lecture, page 12)
-//      // Step 1, compute the estimate of y according to previous model (old
-//      // beta)
-//      double gmu = 0.0;
-//
-//      for( int i = 0; i < (x.length-1);++i) {
-//        gmu += x[i] * _beta[i];
-//      }
-//      // add the constant (constant/Intercept is not included in the x vector,
-//      // have to add it separately)
-//      gmu += _origConstant * _beta[x.length - 1];
-//      // get the inverse to get estimate of p(Y=1|X) according to previous model
-//      double mu = linkInv(_link,gmu);
-//      double dgmu = linkDeriv(_link,mu);
-//      x[x.length - 1] = gmu + (y - mu) * dgmu; // z = y approx by Taylor
-//                                               // expansion at the point of our
-//                                               // estimate (mu), done to avoid
-//                                               // log(0),log(1)
-//      // Step 2
-//      double vary = variance(_family,mu); // variance of y according to our model
-//
-//      // compute the weights (inverse of variance of z)
-//      double var = dgmu * dgmu * vary;
-//      // Apply the weight. We want each data point to have weight of inverse of
-//      // the variance of y at this point.
-//      // Since we compute x'x, we take sqrt(w) and apply it to both x and y
-//      // (we also compute X*y)
-//      double w = Math.sqrt(1 / var)*_w;
-//      for( int i = 0; i < x.length; ++i )
-//        x[i] *= w;
-//      _constant = _origConstant * w;
-//      super.processRow(x);
-//    }
-//  }
-//
-//  /**
-//   * Specialization of IRLSM for binomial family. Values 0/1 are enforced.(_case = 1, everything else = 0)
-//   */
-//  public static class BinomialTask extends IRLSMTask {
-//    double _case; // in
-//    long _caseCount; // out
-//    double [] _wt;
-//
-//    public BinomialTask(int [] colIds, Sampling s, int constant, double [] beta, double[][] pVals, Link l,BinomialArgs bargs){
-//      super(colIds,s,constant, beta, pVals,  Family.binomial,l);
-//      _case = bargs._case;
-//      _wt = bargs._wt;
-//    }
-//
-//    @Override
-//    public void processRow(double [] x){
-//      int cid = x.length-1;
-//      if(x[cid] == _case){
-//        x[cid] = 1.0;
-//        _w = _wt[1];
-//        ++_caseCount;
-//      } else {
-//        x[cid] = 0.0;
-//        _w = _wt[0];
-//      }
-//      super.processRow(x);
-//    }
-//  }
-//
-//
-//  public static class GLMModel extends Models.HexModel {
-//    double [] _beta;
-//    public int _iterations;
-//    public long _runningTime;
-//    public boolean _isfinished;
-//    GLM_Params _glmParams;
-//
-//    public GLMModel(){}
-//
-//    public GLMModel(String [] columnNames, int [] colIds, double [][] pVals) {
-//      this(columnNames, colIds, pVals, null, 0.0, new GLM_Params());
-//    }
-//
-//    public GLMModel(String [] columnNames,int [] colIds, double[][] pVals, double [] b, double ymu, GLM_Params glmParams) {
-//      super(columnNames,colIds, pVals);
-//      _beta = b;
-//      _glmParams = glmParams;
-//      _ymu = ymu;
-//    }
-//
-//    public double [] beta(){return _beta;}
-//    @Override
-//    public boolean skipIncompleteLines() {
-//      return true;
-//    }
-//
-//    public double getMu(double[] x) {
-//      double ym = 0;
-//      for( int i = 0; i < (_beta.length-1); ++i )
-//        ym += x[i] * _beta[i];
-//      ym += _beta[_beta.length - 1];
-//      return ym;
-//    }
-//
-//    public double getYm(double[] x) {
-//      return linkInv(Link.values()[_glmParams._link],getMu(x));
-//    }
-//
-//    @Override
-//    Models.ModelValidation makeValidation() {
-//      return new GLMValidation(_ymu, _glmParams, _beta.length-1);
-//    }
-//  }
-//  public static class GLMValidation extends Models.ModelValidation {
-//    double _nullDev;
-//    double _resDev;
-//    double _err;
-//    double _errVar;
-//    transient double _ymu;
-//    GLM_Params _glmParams;
-//    long _n;
-//    int _xlen;
-//    int _t = 1;
-//
-//    public GLMValidation(double ymu, GLM_Params glmParams, int xlen){
-//      _ymu = ymu;
-//      _glmParams = glmParams;
-//      _xlen = xlen;
-//    }
-//
-//    public GLMValidation(GLMValidation other){
-//      _nullDev = other._nullDev;
-//      _resDev = other._resDev;
-//      _err = other._err;
-//      _errVar = other._errVar;
-//      _ymu = other._ymu;
-//      _glmParams = other._glmParams;
-//      _n = other._n;
-//      _t = other._t;
-//    }
-//
-//    @Override
-//    public void add(double yr, double ym) {
-//      _nullDev += deviance(Family.values()[_glmParams._family], yr, _ymu);
-//      _resDev += deviance(Family.values()[_glmParams._family], yr, ym);
-//      _err += (yr-ym)*(yr-ym);
-//      ++_n;
-//    }
-//
-//    @Override
-//    public void add(Models.ModelValidation other) {
-//      GLMValidation v = (GLMValidation)other;
-//      _nullDev += v._nullDev;
-//      _resDev += v._resDev;
-//      _n += v._n;
-//      _err += v._err;
-//    }
-//
-//    @Override
-//    public void aggregate(Models.ModelValidation mv) {
-//      GLMValidation other = (GLMValidation)mv;
-//      // recursive avg formula
-//      _n += other._n;
-//      ++_t;
-//      _err = (_t - 1.0) / _t * _err + 1.0 / _t * other._err;
-//      // recursive variance formula
-//      double newVar = (other._err - _err);
-//      _errVar = ((_t - 1.0) / _t) * _errVar + (1.0 / (_t - 1)) * newVar
-//          * newVar;
-//    }
-//
-//    @Override
-//    public double err() {
-//      return _err;
-//    }
-//
-//    public double nullDeviance(){return _nullDev;}
-//    public double resDeviance(){return _resDev;}
-//
-//    @Override
-//    public Models.ModelValidation clone() {
-//      return new GLMValidation(this);
-//    }
-//
-//    @Override
-//    public long n() {
-//      return _n;
-//    }
-//
-//    public JsonObject toJson(){
-//      JsonObject trainingValidation = new JsonObject();
-//      trainingValidation.addProperty("DegreesOfFreedom", _n - 1);
-//      trainingValidation.addProperty("ResidualDegreesOfFreedom", _n - _xlen - 1);
-//      trainingValidation.addProperty("NullDeviance", _nullDev);
-//      trainingValidation.addProperty("ResidualDeviance", _resDev);
-//      int k = _xlen + 1;
-//      trainingValidation.addProperty("AIC", 2 * k + _resDev);
-//      trainingValidation.addProperty("trainingSetErrorRate",_err);
-//      return trainingValidation;
-//    }
-//
-//  }
-//
-//
-//  public static class GLMBinomialModel extends GLMModel {
-//
-//    @Override
-//    public double getYr(double[] x) {
-//      return (x[x.length-1] == ((BinomialArgs)_glmParams._fargs)._case)?1.0:0.0;
-//    }
-//
-//    public GLMBinomialModel(){}
-//    public GLMBinomialModel(String [] columNames, int [] colIds, double [][] pVals){
-//      super(columNames, colIds, pVals);
-//    }
-//
-//    public GLMBinomialModel(String [] columnNames, int [] colIds, double[][] pVals, double [] b, double ymu, GLM_Params glmParams){
-//      super(columnNames, colIds, pVals,b,ymu, glmParams);
-//    }
-//
-//
-//
-//    @Override
-//    Models.ModelValidation makeValidation() {
-//      return new GLMBinomialValidation(_ymu,_glmParams, _beta.length-1);
-//    }
-//  }
-//
-//  public static class GLMBinomialValidation extends GLMValidation implements BinaryClassifierValidation, H2OSerializable {
-//    public long [][] _cm;
-//    double _fpMean;
-//    double _fpVar;
-//    double _fnMean;
-//    double _fnVar;
-//    double _tnMean;
-//    double _tnVar;
-//    double _tpMean;
-//    double _tpVar;
-//    boolean _aggregate;
-//
-//    public GLMBinomialValidation(double ymu, GLM_Params glmParams, int xlen){
-//      super(ymu,glmParams,xlen);
-//      _cm = new long[2][2];
-//    }
-//
-//    public GLMBinomialValidation(GLMBinomialValidation other){
-//      super(other);
-//      _cm = other._cm.clone();
-//    }
-//
-//    @Override
-//    public void add(double yr, double ym) {
-//      assert !_aggregate;
-//      super.add(yr,ym);
-//      int m = (ym > ((BinomialArgs)_glmParams._fargs)._threshold)?1:0;
-//      int r = (int)yr;
-//      assert r == yr;
-//      ++_cm[m][r];
-//    }
-//
-//    @Override
-//    public void aggregate(Models.ModelValidation other) {
-//      super.aggregate(other);
-//      GLMBinomialValidation v = (GLMBinomialValidation)other;
-//      _fpMean = (_t - 1.0) / _t * fp() + 1.0 / _t * v.fp();
-//      // recursive variance formula
-//      double newVar = (v.fp() - fp());
-//      _fpVar = ((_t - 1.0) / _t) * _fpVar + (1.0 / (_t - 1)) * newVar
-//          * newVar;
-//
-//      _tpMean = (_t - 1.0) / _t * tp() + 1.0 / _t * tp();
-//      // recursive variance formula
-//      newVar = (v.tp() - tp());
-//      _tpVar = ((_t - 1.0) / _t) * _tpVar + (1.0 / (_t - 1)) * newVar
-//          * newVar;
-//
-//      _tnMean = (_t - 1.0) / _t * tn() + 1.0 / _t * v.tn();
-//      // recursive variance formula
-//      newVar = (v.tn() - tn());
-//      _tnVar = ((_t - 1.0) / _t) * _tnVar + (1.0 / (_t - 1)) * newVar
-//          * newVar;
-//
-//      _fnMean = (_t - 1.0) / _t * fn() + 1.0 / _t * v.fn();
-//      // recursive variance formula
-//      newVar = (v.fn() - fn());
-//      _fnVar = ((_t - 1.0) / _t) * _fnVar + (1.0 / (_t - 1)) * newVar
-//          * newVar;
-//      _aggregate = true;
-//
-//    }
-//
-//    public long cm(int i, int j){
-//      return _cm[i][j];
-//    }
-//
-//    @Override
-//    public void add(Models.ModelValidation other) {
-//      super.add(other);
-//      GLMBinomialValidation bv = (GLMBinomialValidation)other;
-//      for(int i = 0; i < _cm.length; ++i)
-//        for(int j = 0; j < _cm.length; ++j)
-//          _cm[i][j] += bv._cm[i][j];
-//      _err = (_cm[0][1] + _cm[1][0])/(double)_n;
-//    }
-//
-//    @Override
-//    public double err() {
-//      if(_n == 0)return 0;
-//      return  (_cm[0][1] + _cm[1][0])/(double)_n;
-//    }
-//
-//    public double fp(){
-//      return (_aggregate?_fpMean:(double)_cm[1][0]/(double)_n);
-//    }
-//    public double fpVar(){
-//      return _fpVar;
-//    }
-//
-//    public double fn(){
-//      return _aggregate?_fnMean:(double)_cm[0][1]/(double)_n;
-//    }
-//
-//    public double fnVar(){
-//      return _fnVar;
-//    }
-//
-//    public double tp(){
-//      return _aggregate?_tpMean:(double)_cm[1][1]/(double)_n;
-//    }
-//
-//    public double tpVar(){
-//      return _tpVar;
-//    }
-//
-//    public double tn(){
-//      return _aggregate?_tnMean:(double)_cm[0][0]/(double)_n;
-//    }
-//    public double tnVar(){
-//      return _tnVar;
-//    }
-//
-//    @Override
-//    public int classes() {
-//      return 2;
-//    }
-//    @Override
-//    public GLMBinomialValidation clone() {
-//      return new GLMBinomialValidation(this);
-//    }
-//  }
-//}
+package hex;
+
+import hex.DLSM.LSMSolver;
+import hex.GLMSolver.ConfusionMatrix;
+import hex.GLMSolver.ErrMetric;
+import hex.NewRowVecTask.DataFrame;
+import hex.NewRowVecTask.RowAlg;
+import hex.NewRowVecTask.RowAlgFactory;
+import hex.RowVecTask.Sampling;
+
+import java.util.*;
+
+import water.*;
+
+import com.google.gson.*;
+
+
+
+
+public abstract class DGLM {
+
+  public static final int DEFAULT_MAX_ITER = 50;
+  public static final double DEFAULT_BETA_EPS = 1e-4;
+  private static final double MAX_SQRT = Math.sqrt(Double.MAX_VALUE);
+
+  public static class GLMException extends RuntimeException {
+    public GLMException(String msg){super(msg);}
+  }
+
+
+
+  public static class GLMParams extends Iced {
+    public Family _family = Family.gaussian;
+    public Link _link;
+    public double _betaEps = 1e-4;
+    public int _maxIter = 50;
+    public double _caseVal;
+    public double _caseWeight = 1.0;
+    public CaseMode _caseMode = CaseMode.none;
+
+    public GLMParams(Family family){this(family,family.defaultLink);}
+
+    public GLMParams(Family family, Link link){
+      _family = family;
+      _link = link;
+    }
+
+    public JsonObject toJson(){
+      JsonObject res = new JsonObject();
+      res.addProperty("family", _family.toString());
+      res.addProperty("link", _link.toString());
+      res.addProperty("betaEps", _betaEps);
+      res.addProperty("maxIter", _maxIter);
+      if(_caseMode != null && _caseMode != CaseMode.none){
+        res.addProperty("caseVal",_caseMode.exp(_caseVal));
+        res.addProperty("weight",_caseWeight);
+      }
+      return res;
+    }
+  }
+
+  public enum CaseMode {
+    none("n/a"),
+    lt("<"),
+    gt(">"),
+    lte("<="),
+    gte(">="),
+    eq("=");
+    final String _str;
+
+    CaseMode(String str){
+      _str = str;
+    }
+    public String toString(){
+      return _str;
+    }
+
+    public String exp(double v){
+      switch(this){
+      case none:
+        return "n/a";
+      default:
+        return "x" + _str + v;
+      }
+    }
+
+    public final boolean isCase(double x, double y){
+      switch(this){
+      case lt:
+        return x < y;
+      case gt:
+        return x > y;
+      case lte:
+        return x <= y;
+      case gte:
+        return x >= y;
+      case eq:
+        return x == y;
+      default:
+        assert false;
+        return false;
+      }
+    }
+  }
+  public static enum Link {
+    familyDefault(0),
+    identity(0),
+    logit(0),
+    log(0),
+//    probit(0),
+//    cauchit(0),
+//    cloglog(0),
+//    sqrt(0),
+    inverse(1.0),
+//    oneOverMu2(0);
+    ;
+    public final double defaultBeta;
+
+    Link(double b){defaultBeta = b;}
+
+    public final double link(double x){
+      switch(this){
+      case identity:
+        return x;
+      case logit:
+        assert 0 <= x && x <= 1;
+        return Math.log(x/(1 - x));
+      case log:
+        return Math.log(x);
+      case inverse:
+        return 1/x;
+      default:
+        throw new Error("unsupported link function id  " + this);
+      }
+    }
+
+    public final double linkInv(double x){
+      switch(this){
+      case identity:
+        return x;
+      case logit:
+        return 1.0 / (Math.exp(-x) + 1.0);
+      case log:
+        return Math.exp(x);
+      case inverse:
+        return 1/x;
+      default:
+        throw new Error("unexpected link function id  " + this);
+      }
+    }
+
+    public final double linkDeriv(double x){
+      switch(this){
+        case identity:
+          return 1;
+        case logit:
+          if( x == 1 || x == 0 ) return MAX_SQRT;
+          return 1 / (x * (1 - x));
+        case log:
+          return (x == 0)?MAX_SQRT:1/x;
+        case inverse:
+          return -1/(x*x);
+        default:
+          throw new Error("unexpected link function id  " + this);
+      }
+    }
+  }
+
+
+  // helper function
+  static final double y_log_y(double y, double mu){
+    mu = Math.max(Double.MIN_NORMAL, mu);
+    return (y != 0) ? (y * Math.log(y/mu)) : 0;
+  }
+
+  // supported families
+  public static enum Family {
+    gaussian(Link.identity,null),
+    binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
+    poisson(Link.log,null);
+    //gamma(Link.inverse,null);
+    public final Link defaultLink;
+    public final double [] defaultArgs;
+    Family(Link l, double [] d){defaultLink = l; defaultArgs = d;}
+
+    public double aic(double dev, long nobs, long dof){
+      int betaLen = (int)(nobs - dof);
+      switch(this){
+      case gaussian:
+        return nobs *(Math.log(dev/nobs * 2 *Math.PI)+1)+2 + 2*betaLen;
+      case binomial:
+        return 2*betaLen + dev;
+      case poisson:
+        return 2*betaLen + dev;
+//      case gamma:
+//        return Double.NaN;
+      default:
+        throw new Error("unknown family Id " + this);
+      }
+    }
+    public double variance(double mu){
+      switch(this){
+      case gaussian:
+        return 1;
+      case binomial:
+        assert 0 <= mu && mu <= 1:"unexpected mu:" + mu;
+        return mu*(1-mu);
+      case poisson:
+        return mu;
+//      case gamma:
+//        return mu*mu;
+      default:
+        throw new Error("unknown family Id " + this);
+      }
+
+    }
+
+    public double z(double yr, double mu, Link l){
+      switch(this){
+      case gaussian:
+        assert(false); // no need for this with gaussian!
+        return yr - mu;
+      case binomial:
+        assert 0 <= yr && yr <= 1;
+        double p = l.linkInv(mu);
+        assert 0 <= p && p <= 1;
+        double w = p*(1-p);
+        if(p < 1e-5){
+          p = 0;
+          w = 1e-5;
+        } else if(p > (1-1e-5)){
+          p = 1;
+          w = 1e-5;
+        }
+        return mu + (yr - p)/w;
+      default:
+        throw new Error("unimplemented");
+      }
+    }
+
+
+    /**
+     * Per family deviance computation.
+     *
+     * @param family
+     * @param yr
+     * @param ym
+     * @return
+     */
+    public double deviance(double yr, double ym){
+      switch(this){
+      case gaussian:
+        return (yr - ym)*(yr - ym);
+      case binomial:
+        return 2*((y_log_y(yr, ym)) + y_log_y(1-yr, 1-ym));
+        //return -2*(yr * ym - Math.log(1 + Math.exp(ym)));
+      case poisson:
+        //ym = Math.exp(ym);
+        if(yr == 0)return 2*ym;
+        return 2*((yr * Math.log(yr/ym)) - (yr - ym));
+//      case gamma:
+//        if(yr == 0)return -2;
+//        return -2*(Math.log(yr/ym) - (yr - ym)/ym);
+      default:
+        throw new Error("unknown family Id " + this);
+      }
+    }
+  }
+
+
+  public static class GLMModel extends Iced {
+    Key       _trainingData;
+    String [] _colNames;
+    double [] _beta;
+    boolean   _converged;
+    GLMParams _glmp;
+    String [] _warnings;
+    Key       _key;
+    GLMValidation []    _vals;
+
+    public GLMModel(){}
+    public GLMModel(DataFrame data, double [] beta, GLMParams glmp, boolean converged, String [] warnings){
+      _trainingData = data._aryKey;
+      _colNames = data.colNames();
+      _beta = beta;
+      _converged = converged;
+      _glmp = glmp;
+      _warnings = warnings;
+    }
+
+
+    public boolean is_solved() { return _beta != null; }
+    public static final String KEY_PREFIX = "__GLMModel_";
+
+    public static final Key makeKey() {
+      return Key.make(KEY_PREFIX + Key.make());
+    }
+
+    public final void store() {
+      if(_key == null){
+        _key = makeKey();
+        if(_vals != null)for(GLMValidation v:_vals)
+          v._modelKey = _key;
+      }
+      UKV.put(_key, this);
+    }
+    public boolean isCompatible(ValueArray ary, int [] colIds){
+      if( colIds == null ) colIds = new int [_colNames.length];
+      else assert colIds.length == _colNames.length;
+      for(int j = 0; j < _colNames.length; ++j) {
+        colIds[j] = -1;
+        for(int i = 0; i < ary._cols.length; ++i) {
+          if(ary._cols[i]._name.equals(_colNames[j])) {
+            colIds[j] = i;
+            break;
+          }
+        }
+        if( colIds[j] == -1 ) return false;
+      }
+      return true;
+    }
+
+    public GLMValidation validateOn(ValueArray ary, HexSampling s){
+      return null;
+    }
+
+    public JsonObject toJson(){
+      JsonObject res = new JsonObject();
+      res.addProperty("trainingDataset", _trainingData.toString());
+      JsonArray colnames = new JsonArray();
+      for(String s:_colNames)colnames.add(new JsonPrimitive(s));
+      res.add("colNames", colnames);
+      JsonArray beta = new JsonArray();
+      for(double d:_beta)
+        beta.add(new JsonPrimitive(d));
+      res.add("coefs",beta);
+      res.add("glm_params",_glmp.toJson());
+      JsonArray warns = new JsonArray();
+      for(String s:_warnings)warns.add(new JsonPrimitive(s));
+      res.add("warnings", warns);
+      if(_key != null)
+        res.addProperty("model_key",_key.toString());
+      JsonArray vals = new JsonArray();
+      if(_vals != null) for(GLMValidation val:_vals)
+        vals.add(val.toJson());
+      res.add("validations",vals);
+      return res;
+    }
+  }
+
+  public abstract GLMModel solve(GLMModel model, ValueArray ary);
+
+  static final class Gram extends Iced {
+    double [][] _xx;
+    double   [] _xy;
+    double      _yy;
+    long        _nobs;
+    final int   _N;
+    public Gram(int N){
+      _N = N;
+      _xx = new double[N][];
+      _xy = MemoryManager.malloc8d(N);
+      for(int i = 0; i < N; ++i)
+        _xx[i] = MemoryManager.malloc8d(i+1);
+    }
+    public double [][] getXX(){
+      double [][] xx = new double[_N][_N];
+      for( int i = 0; i < _N; ++i ) {
+        for( int j = 0; j < _xx[i].length; ++j ) {
+            xx[i][j] = _xx[i][j];
+            xx[j][i] = _xx[i][j];
+        }
+      }
+      return xx;
+    }
+    public double [] getXY(){return _xy;}
+
+    public void add(Gram grm){
+      _yy += grm._yy;
+      _nobs += grm._nobs;
+      for(int i = 0; i < _N; ++i){
+        _xy[i] += grm._xy[i];
+        final int n = _xx[i].length;
+        for(int j = 0; j < n; ++j)
+          _xx[i][j] += grm._xx[i][j];
+      }
+    }
+  }
+
+
+  public static class GramMatrixFactory extends RowAlgFactory<Gram>{
+    final int N;
+    public GramMatrixFactory(int n){N = n;}
+    public RowAlg<Gram> createInstance(){return new GramMatrixFunc(N, new Gram(N));}
+  }
+
+  /**
+   * Task to compute gram matrix (X'*X).
+   *
+   * @author tomasnykodym
+   *
+   */
+  public static class GramMatrixFunc extends RowAlg<Gram> {
+    Gram _gram;
+    final int N;
+
+    public GramMatrixFunc(int n){N = n;}
+    protected GramMatrixFunc(int n, Gram g){
+      N = n;
+      _gram = g;
+    }
+
+    @Override
+    public GramMatrixFunc clone(){
+      return new GramMatrixFunc(N,new Gram(N));
+    }
+
+    @Override
+    public void processRow(double[] x, int dense, int[] indexes) {
+      double w = 1;
+      double y = w*x[dense-1];
+      _gram._yy += 0.5*y*y;
+      ++_gram._nobs;
+      x[x.length-1] = 1.0; // intercept
+      for(int i = 0; i < dense; ++i){
+        for(int j = 0; j <= i; ++j)
+          _gram._xx[i][j] += w*x[i]*x[j];
+        _gram._xy[i] += y*x[i];
+      }
+      for(int i = 0; i < indexes.length; ++i){
+        for(int j = 0; j < dense; ++j)
+          _gram._xx[indexes[i]][j] += w*x[dense+i]*x[j];
+        for(int j = 0; j <= i; ++j)
+          _gram._xx[indexes[i]][indexes[j]] += w*x[dense+i]*x[dense+j];
+        _gram._xy[indexes[i]] += y*x[dense+i];
+      }
+    }
+
+    @Override
+    public void reduce(RowAlg rwa) {
+      GramMatrixFunc grm = (GramMatrixFunc)rwa;
+      assert grm != this;
+      if(_gram == null)
+        _gram = grm._gram;
+      else
+        _gram.add(grm._gram);
+    }
+
+    @Override
+    protected Gram res() {
+      return _gram;
+    }
+  }
+
+  private static double betaDiff(double [] b1, double [] b2){
+    double res = Math.abs(b1[0] - b2[0]);
+    for(int i = 1; i < b1.length; ++i)
+      res = Math.max(res,Math.abs(b1[i] - b2[i]));
+    return res;
+  }
+
+  public static GLMModel buildModel(DataFrame data, GLMParams glmp, LSMSolver solver, Sampling s){
+    GramMatrixFactory gramF = new GramMatrixFactory(data.expandedVectorSize());
+    double [] newBeta = new double [data.expandedVectorSize()];
+    ArrayList<String> warns = new ArrayList<String>();
+    boolean converged = false;
+    Gram gram = gramF.apply(data,s);
+    if(glmp._family != Family.gaussian) { // IRLSM
+      double [][] xx = gram.getXX();
+      for(int i = 0; i < xx.length; ++i){
+        for(int j = 0; j < xx.length; ++j)
+          xx[i][j] *= 0.25; // apply weight approximated by 1/4
+      }
+      double [] beta = new double [data.expandedVectorSize()];
+      int iter = 0;
+      do{
+        double [] b = beta;
+        beta = newBeta;
+        newBeta = b;
+        GLMZUpdateFactory zupdate = new GLMZUpdateFactory(glmp,beta);
+        ZUpdate zup = zupdate.apply(data);
+        double [] z = zup._Xz;
+        double zz = zup._zz;
+        for(int i = 0; i < z.length; ++i)
+          z[i] *= 0.25;
+        zz *= 0.25;
+        solver.solve(xx, z, zz, newBeta, gram._nobs);
+      } while(betaDiff(beta,newBeta) > glmp._betaEps && ++iter != 50);
+      if(iter == 50)System.err.println("did not converge!, last betaDiff = " + betaDiff(beta, newBeta));
+    } else  // gaussian can be solved directly
+      solver.solve(gram.getXX(), gram.getXY(), gram._yy, newBeta, gram._nobs);
+    String [] warnings = new String[warns.size()];
+    warns.toArray(warnings);
+    if(data._standardize){
+      // de-normalize coefficients
+      double norm = 0;
+      for(int i = 0; i < newBeta.length-1; ++i){
+        newBeta[i] *= data.scale(i);
+        norm += newBeta[i]*data.center(i);
+      }
+      newBeta[newBeta.length-1] -= norm;
+    }
+    return new GLMModel(data, newBeta, glmp, converged, warnings);
+  }
+
+  public static class ZUpdate extends Iced {
+    public double [] _Xz;
+    public double _zz;
+
+    public void add(ZUpdate other){
+      _zz += other._zz;
+      for(int i = 0; i < _Xz.length; ++i)
+        _Xz[i] += other._Xz[i];
+    }
+  }
+  public static class GLMZUpdateFactory extends RowAlgFactory<ZUpdate>{
+    final GLMParams _glmp;
+    final double [] _beta;
+
+    public GLMZUpdateFactory(GLMParams glmp, double [] beta){
+      _glmp = glmp;
+      _beta = beta;
+    }
+
+    @Override
+    public RowAlg<ZUpdate> createInstance() {
+      return new GLMZUpdate(this);
+    }
+
+    private static class GLMZUpdate extends RowAlg<ZUpdate> {
+      final transient GLMZUpdateFactory _factory;
+      ZUpdate _res;
+
+
+      public GLMZUpdate(GLMZUpdateFactory f){
+        _factory = f;
+        _res = new ZUpdate();
+        _res._Xz = MemoryManager.malloc8d(_factory._beta.length);
+      }
+
+      @Override
+      public void processRow(double[] x, int nDense, int[] indexes) {
+        double mu = 0;
+        double yr = x[nDense-1];
+        if(_factory._glmp._caseMode != CaseMode.none)
+          yr = _factory._glmp._caseMode.isCase(_factory._glmp._caseVal, yr)?1:0;
+        x[nDense-1] = 1; // the intercept
+        for(int i = 0; i < nDense; ++i)
+          mu += _factory._beta[i]*x[i];
+        for(int i = 0; i < indexes.length; ++i)
+          mu += _factory._beta[indexes[i]]*x[nDense+i];
+        double z = _factory._glmp._family.z(yr, mu, _factory._glmp._link);
+        _res._zz += 0.5*z*z;
+        for(int i = 0; i < nDense; ++i)
+          _res._Xz[i] += z*x[i];
+        for(int i = 0; i < indexes.length; ++i)
+          _res._Xz[indexes[i]] += z*x[nDense+i];
+      }
+      @Override
+      public void reduce(RowAlg rwa) {
+        GLMZUpdate t = (GLMZUpdate)rwa;
+        if(_res == null)_res = t._res;
+        else _res.add(t._res);
+      }
+      @Override
+      protected ZUpdate res() {
+        return _res;
+      }
+    }
+  }
+
+  public static class GLMValidation extends Iced {
+    public static final String KEY_PREFIX = "__GLMValidation_";
+    public final GLMParams _glmp;
+    Key [] _modelKeys;
+    Key _key;
+    Key _modelKey;
+    Sampling _s;
+    public final long _n;
+    public final double _dof;
+    public final double _aic;
+    public final double _deviance;
+    public final double _nullDeviance;
+    ErrMetric _errMetric = ErrMetric.SUMC;
+    double _auc;
+    public final ConfusionMatrix [] _cm;
+    int _tid;
+    double [] _thresholds;
+
+    public GLMValidation(GLMParams glmp, double resDev, double nullDev, long n, long dof, ConfusionMatrix [] cm, double [] thresholds){
+      _glmp = glmp;
+      _deviance = resDev;
+      _nullDeviance = nullDev;
+      _n = n;
+      _cm = cm;
+      _dof = dof;
+      _aic = glmp._family.aic(_deviance, _n, dof);
+      _thresholds = thresholds;
+      if(_cm != null){
+        computeBestThreshold(ErrMetric.SUMC);
+        computeAUC();
+      }
+    }
+
+    public GLMValidation(GLMModel [] models, ErrMetric m, double [] thresholds) {
+      _errMetric = m;
+      _modelKeys = new Key[models.length];
+      _glmp = models[0]._glmp;
+      int i = 0;
+      boolean solved = true;
+      for(GLMModel xm:models){
+        if(xm._key == null)xm.store();
+        _modelKeys[i++] = xm._key;
+        if(!xm.is_solved())solved = false;
+      }
+      if(!solved){
+        _aic = Double.NaN;
+        _dof = Double.NaN;
+        _auc = Double.NaN;
+        _deviance = Double.NaN;
+        _nullDeviance = Double.NaN;
+        _n = -1;
+        _cm = null;
+        return;
+      }
+      long n = 0;
+      double nDev = 0;
+      double dev = 0;
+      if(models[0]._vals[0]._cm != null){
+        int nthresholds = models[0]._vals[0]._cm.length;
+        _cm = new ConfusionMatrix[nthresholds];
+        for(int t = 0; t < nthresholds; ++t)
+          _cm[t] = models[0]._vals[0]._cm[t];
+        n += models[0]._vals[0]._n;
+        dev = models[0]._vals[0]._deviance;
+        nDev = models[0]._vals[0]._nullDeviance;
+        for(i = 1; i < models.length; ++i){
+          n += models[i]._vals[0]._n;
+          dev += models[0]._vals[0]._deviance;
+          nDev += models[0]._vals[0]._nullDeviance;
+          for(int t = 0; t < nthresholds; ++t)
+            _cm[t].add(models[i]._vals[0]._cm[t]);
+        }
+        _thresholds = thresholds;
+        computeBestThreshold(m);
+        computeAUC();
+      } else {
+        _cm = null;
+        for(GLMModel xm:models){
+          n += xm._vals[0]._n;
+          dev += xm._vals[0]._deviance;
+          nDev += xm._vals[0]._nullDeviance;
+        }
+      }
+      _deviance = dev;
+      _nullDeviance = nDev;
+      _n = n;
+      _aic = models[0]._glmp._family.aic(_deviance, _n, models[0]._beta.length);
+      _dof = _n - models[0]._beta.length - 1;
+    }
+
+    public Iterable<GLMModel> models(){
+      final Key [] keys = _modelKeys;
+      final int N = (keys != null)?keys.length:0;
+      return new Iterable<GLMModel> (){
+        int idx;
+        @Override
+        public Iterator<GLMModel> iterator() {
+          return new Iterator<GLMModel>() {
+            @Override
+            public void remove() {throw new UnsupportedOperationException();}
+            @Override
+            public GLMModel next() {
+              if(idx == keys.length) throw new NoSuchElementException();
+              return new GLMModel().read(new AutoBuffer(DKV.get(keys[idx++]).get()));
+            }
+              @Override
+            public boolean hasNext() {
+              return idx < keys.length;
+            }
+          };
+        }
+      };
+    }
+
+    public int fold(){
+      return (_modelKeys == null)?1:_modelKeys.length;
+    }
+
+    public ConfusionMatrix bestCM(){
+      if(_cm == null)return null;
+      return bestCM(ErrMetric.SUMC);
+    }
+
+    public ConfusionMatrix bestCM(ErrMetric errM){
+      computeBestThreshold(errM);
+      return _cm[_tid];
+    }
+
+    public double bestThreshold() {
+      return (_thresholds != null)?_thresholds[_tid]:0;
+    }
+    public void computeBestThreshold(ErrMetric errM){
+      double e = errM.computeErr(_cm[0]);
+      _tid = 0;
+      for(int i = 1; i < _cm.length; ++i){
+        double r = errM.computeErr(_cm[i]);
+        if(r < e){
+          e = r;
+          _tid = i;
+        }
+      }
+    }
+
+
+    double [] err(int c) {
+      double [] res = new double[_cm.length];
+      for(int i = 0; i < res.length; ++i)
+        res[i] = _cm[i].classErr(c);
+      return res;
+    }
+
+    double err(int c, int threshold) {
+      return _cm[threshold].classErr(c);
+    }
+
+    public double [] classError() {
+      return _cm[_tid].classErr();
+    }
+    private double trapeziod_area(double x1, double x2, double y1, double y2){
+      double base = Math.abs(x1-x2);
+      double havg = 0.5*(y1 + y2);
+      return base*havg;
+    }
+
+    public double AUC(){
+      return _auc;
+    }
+
+    /**
+     * Computes area under the ROC curve.
+     * The ROC curve is computed from the confusion matrices (there is one for
+     * each computed threshold).  Area under this curve is then computed as a
+     * sum of areas of trapezoids formed by each neighboring points.
+     *
+     * @return estimate of the area under ROC curve of this classifier.
+     */
+    protected void computeAUC() {
+      double auc = 0;           // Area-under-ROC
+      double TPR_pre = 1;
+      double FPR_pre = 1;
+
+      for(int t = 0; t < _cm.length; ++t){
+        double TPR = 1 - _cm[t].classErr(1); // =TP/(TP+FN) = true -positive-rate
+        double FPR =     _cm[t].classErr(0); // =FP/(FP+TN) = false-positive-rate
+        auc += trapeziod_area(FPR_pre, FPR, TPR_pre, TPR);
+        TPR_pre = TPR;
+        FPR_pre = FPR;
+      }
+      auc += trapeziod_area(FPR_pre, 0, TPR_pre, 0);
+      _auc = auc;
+    }
+
+
+    public JsonObject toJson() {
+      JsonObject res = new JsonObject();
+      if(_s != null)
+        res.addProperty("sampling", _s.toString());
+      res.addProperty("nrows", _n);
+      res.addProperty("dof", _dof);
+      res.addProperty("resDev", _deviance);
+      res.addProperty("nullDev", _nullDeviance);
+      res.addProperty("auc", _auc);
+
+      if(_cm != null) {
+        double [] err = _cm[_tid].classErr();
+        JsonArray arr = new JsonArray();
+        for(int i = 0; i < err.length; ++i)
+          arr.add(new JsonPrimitive(err[i]));
+        res.add("classErr", arr);
+        res.addProperty("threshold", _thresholds[_tid]);
+        res.add("cm", _cm[_tid].toJson());
+      }
+      if(_modelKeys != null){
+        JsonArray arr = new JsonArray();
+        for(Key k:_modelKeys)
+          arr.add(new JsonPrimitive(k.toString()));
+        res.add("xval_models", arr);
+      }
+      return res;
+    }
+
+    public double AIC() {
+      return _aic;
+    }
+  }
+
+  public static final class GLMValidationFactory extends RowAlgFactory<GLMValidation> {
+    final GLMParams _glmp;
+    final double    _ymu;
+    final double [] _beta;
+    final double [] _thresholds;
+
+    public GLMValidationFactory(GLMParams glmp, double ymu, double [] beta, double [] thresholds){
+      _glmp = glmp;
+      _ymu = ymu;
+      _beta = beta;
+      _thresholds = thresholds;
+    }
+
+    @Override
+    public RowAlg<GLMValidation> createInstance(){
+      return new ValidationAlg(this);
+    }
+
+    private static class ValidationAlg extends RowAlg<GLMValidation> {
+      final transient GLMValidationFactory _factory;
+      long _n;
+      long _caseCount;
+      double _deviance;
+      double _nullDeviance;
+      double _err;
+      ConfusionMatrix [] _cm;
+
+      public ValidationAlg(GLMValidationFactory f){
+        _factory = f;
+        if(_factory._glmp._family == Family.binomial) {
+          _cm = new ConfusionMatrix[_factory._thresholds.length];
+          for(int i = 0; i < _factory._thresholds.length; ++i)
+            _cm[i] = new ConfusionMatrix(2);
+        }
+      }
+
+      @Override
+      public void processRow(double[] x, int dense, int[] indexes) {
+        ++_n;
+        double yr = x[dense-1];
+        x[dense-1] = 1.0;
+        double ym = 0;
+        for(int i = 0; i < dense; ++i)
+          ym += _factory._beta[i] * x[i];
+        for(int i = 0; i < indexes.length; ++i)
+          ym += _factory._beta[dense+i] * x[indexes[i]];
+
+        ym = _factory._glmp._link.linkInv(ym);
+        if(_factory._glmp._caseMode != CaseMode.none)
+          yr = _factory._glmp._caseMode.isCase(yr, _factory._glmp._caseVal)?1:0;
+        if(yr == 1)
+          ++_caseCount;
+        _deviance += _factory._glmp._family.deviance(yr, ym);
+        _nullDeviance += _factory._glmp._family.deviance(yr, _factory._ymu);
+        if(_factory._glmp._family == Family.binomial) {
+          if(yr < 0 || yr > 1 )
+            throw new Error("response variable value out of range: " + yr);
+          int i = 0;
+          for(double t:_factory._thresholds){
+            int p = ym >= t?1:0;
+            _cm[i++].add((int)yr,p);
+          }
+        } else
+          _err += (ym - yr)*(ym - yr);
+      }
+
+      @Override
+      public void reduce(RowAlg ralg) {
+        ValidationAlg other = (ValidationAlg)ralg;
+        _n += other._n;
+        _nullDeviance += other._nullDeviance;
+        _deviance += other._deviance;
+        _err += other._err;
+        _caseCount += other._caseCount;
+        if(_cm != null) {
+          for(int i = 0; i < _factory._thresholds.length; ++i)
+            _cm[i].add(other._cm[i]);
+        } else
+          _cm = other._cm;
+      }
+
+      @Override
+      protected GLMValidation res() {
+        if(_factory._glmp._family == Family.binomial){
+          double p = _caseCount/(double)_n;
+          _nullDeviance = -2*(_caseCount*Math.log(p) + (_n - _caseCount)*Math.log(1-p));
+        }
+        return new GLMValidation(_factory._glmp, _deviance, _nullDeviance, _n, _n - _factory._beta.length, _cm, _factory._thresholds);
+      }
+    }
+  }
+}

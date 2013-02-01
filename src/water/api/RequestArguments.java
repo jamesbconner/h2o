@@ -1,9 +1,9 @@
 package water.api;
 
-import hex.GLMSolver.CaseMode;
-import hex.GLMSolver.Family;
+import hex.DGLM.CaseMode;
+import hex.DGLM.Family;
+import hex.DGLM.Link;
 import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.Link;
 import hex.rf.Model;
 
 import java.io.File;

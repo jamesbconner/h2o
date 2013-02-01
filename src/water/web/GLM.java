@@ -1,10 +1,11 @@
 package water.web;
 
+import hex.DGLM.Family;
+import hex.DGLM.Link;
+import hex.DLSM.ADMMSolver;
 import hex.*;
-import hex.GLMSolver.Family;
 import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.GLMParams;
-import hex.GLMSolver.Link;
+import hex.GLMSolver.OldGLMParams;
 
 import java.text.DecimalFormat;
 import java.util.*;
@@ -44,9 +45,9 @@ public class GLM extends H2OPage {
     }
     return res;
   }
-  GLMParams getGLMParams(Properties p){
-    GLMParams res = new GLMParams();
-    try{res._f = GLMSolver.Family.valueOf(p.getProperty("family", "gaussian").toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
+  OldGLMParams getGLMParams(Properties p){
+    OldGLMParams res = new OldGLMParams();
+    try{res._f = Family.valueOf(p.getProperty("family", "gaussian").toLowerCase());}catch(IllegalArgumentException e){throw new GLMInputException("unknown family " + p.getProperty("family", "gaussian"));}
 
     if(p.containsKey("link"))
      try{res._l = Link.valueOf(p.getProperty("link").toLowerCase());}catch(Exception e){throw new GLMInputException("invalid link argument " + p.getProperty("link"));}
@@ -69,21 +70,21 @@ public class GLM extends H2OPage {
     if(!p.containsKey(name))return defaultValue;
     try{return Double.parseDouble(p.getProperty(name));}catch (NumberFormatException e){throw new GLMInputException("invalid value of argument " + name);}
   }
-  LSMSolver getLSMSolver(Properties p){
+  ADMMSolver getLSMSolver(Properties p){
     if(!p.containsKey("norm"))
-      return LSMSolver.makeSolver();
+      return ADMMSolver.makeSolver();
     String norm = p.getProperty("norm");
     if(norm.equalsIgnoreCase("L1")){
-      double lambda = getDoubleArg(p, "lambda",LSMSolver.DEFAULT_LAMBDA);
-      double alpha = getDoubleArg(p, "",LSMSolver.DEFAULT_ALPHA);
-      return LSMSolver.makeSolver(lambda, alpha);
+      double lambda = getDoubleArg(p, "lambda",ADMMSolver.DEFAULT_LAMBDA);
+      double alpha = getDoubleArg(p, "",ADMMSolver.DEFAULT_ALPHA);
+      return ADMMSolver.makeSolver(lambda, alpha);
     } else if(norm.equalsIgnoreCase("L2")){
-      double lambda = getDoubleArg(p, "lambda",LSMSolver.DEFAULT_LAMBDA);
-      return LSMSolver.makeL2Solver(lambda);
+      double lambda = getDoubleArg(p, "lambda",ADMMSolver.DEFAULT_LAMBDA);
+      return ADMMSolver.makeL2Solver(lambda);
     } else if(norm.equalsIgnoreCase("ENET")){
-      double lambda = getDoubleArg(p, "lambda",LSMSolver.DEFAULT_LAMBDA);
-      double alpha = getDoubleArg(p, "",LSMSolver.DEFAULT_ALPHA);
-      return LSMSolver.makeSolver(lambda, alpha);
+      double lambda = getDoubleArg(p, "lambda",ADMMSolver.DEFAULT_LAMBDA);
+      double alpha = getDoubleArg(p, "",ADMMSolver.DEFAULT_ALPHA);
+      return ADMMSolver.makeSolver(lambda, alpha);
     } else
       throw new GLMInputException("unknown norm " + norm);
   }

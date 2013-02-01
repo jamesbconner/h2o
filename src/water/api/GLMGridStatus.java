@@ -1,11 +1,10 @@
 package water.api;
 
+import hex.DGLM.Family;
+import hex.DLSM.ADMMSolver;
 import hex.*;
-import hex.GLMSolver.CaseMode;
-import hex.GLMSolver.Family;
 import hex.GLMSolver.GLMModel;
-import hex.GLMSolver.GLMParams;
-import hex.RowVecTask.Sampling;
+import hex.GLMSolver.OldGLMParams;
 
 import java.util.*;
 
@@ -37,7 +36,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   double [] _alphas;          // Grid search values
   int _xfold;
 
-  GLMParams _glmp;
+  OldGLMParams _glmp;
 
   // Progress: Count of GLM models computed so far.
   int _progress;
@@ -49,7 +48,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // Fraction complete
   float progress() { return (float)_progress/_ms.length; }
 
-  public GLMGridStatus(Key taskey, ValueArray va, GLMParams glmp, int[] xs, double[]ls,  double[]as, double[]thresholds, int xfold) {
+  public GLMGridStatus(Key taskey, ValueArray va, OldGLMParams glmp, int[] xs, double[]ls,  double[]as, double[]thresholds, int xfold) {
     _taskey = taskey;           // Capture the args
     _ary = va;                  // VA is large, and already in a Key so make it transient
     _datakey = va._key;         // ... and use the datakey instead when reloading
@@ -118,7 +117,7 @@ class GLMGridStatus extends DTask<GLMGridStatus> {
   // In this case, run 1 GLM model.
   private GLMModel do_task(GLMModel m,int l, int alpha) {
     m = m.clone();
-    m._solver = LSMSolver.makeSolver(_lambdas[l], _alphas[alpha]);
+    m._solver = ADMMSolver.makeSolver(_lambdas[l], _alphas[alpha]);
     m.compute();
     if(_xfold <= 1)
       m.validateOn(_ary, null,_ts);

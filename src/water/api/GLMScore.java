@@ -1,7 +1,6 @@
 package water.api;
 
-import com.google.gson.JsonObject;
-import hex.GLMSolver.Family;
+import hex.DGLM.Family;
 import hex.GLMSolver.GLMException;
 import hex.GLMSolver.GLMModel;
 import hex.GLMSolver.GLMValidation;
@@ -9,6 +8,8 @@ import water.Key;
 import water.ValueArray;
 import water.api.GLM.GLMBuilder;
 import water.web.RString;
+
+import com.google.gson.JsonObject;
 
 /**
  * Simple web page to trigger glm validation on another dataset.

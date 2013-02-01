@@ -1,6 +1,11 @@
 package hex;
 
-import hex.LSMSolver.LSMSolverException;
+import hex.DGLM.CaseMode;
+import hex.DGLM.Family;
+import hex.DGLM.Link;
+import hex.DLSM.ADMMSolver;
+import hex.DLSM.LSMSolver;
+import hex.DLSM.LSMSolver.LSMSolverException;
 import hex.RowVecTask.Sampling;
 
 import java.util.*;
@@ -9,8 +14,6 @@ import water.*;
 import water.ValueArray.Column;
 import Jama.Matrix;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.gson.*;
 
 public class GLMSolver {
@@ -22,187 +25,187 @@ public class GLMSolver {
     public GLMException(String msg){super(msg);}
   }
 
-  public enum CaseMode {
-    none("n/a"),
-    lt("<"),
-    gt(">"),
-    lte("<="),
-    gte(">="),
-    eq("=");
-    final String _str;
-
-    CaseMode(String str){
-      _str = str;
-    }
-    public String toString(){
-      return _str;
-    }
-
-    public String exp(double v){
-      switch(this){
-      case none:
-        return "n/a";
-      default:
-        return "x" + _str + v;
-      }
-    }
-
-    public final boolean isCase(double x, double y){
-      switch(this){
-      case lt:
-        return x < y;
-      case gt:
-        return x > y;
-      case lte:
-        return x <= y;
-      case gte:
-        return x >= y;
-      case eq:
-        return x == y;
-      default:
-        assert false;
-        return false;
-      }
-    }
-  }
-  public static enum Link {
-    familyDefault(0),
-    identity(0),
-    logit(0),
-    log(0),
-//    probit(0),
-//    cauchit(0),
-//    cloglog(0),
-//    sqrt(0),
-    inverse(1.0),
-//    oneOverMu2(0);
-    ;
-    public final double defaultBeta;
-
-    Link(double b){defaultBeta = b;}
-
-    public final double link(double x){
-      switch(this){
-      case identity:
-        return x;
-      case logit:
-        assert 0 <= x && x <= 1;
-        return Math.log(x/(1 - x));
-      case log:
-        return Math.log(x);
-      case inverse:
-        return 1/x;
-      default:
-        throw new Error("unsupported link function id  " + this);
-      }
-    }
-
-    public final double linkInv(double x){
-      switch(this){
-      case identity:
-        return x;
-      case logit:
-        return 1.0 / (Math.exp(-x) + 1.0);
-      case log:
-        return Math.exp(x);
-      case inverse:
-        return 1/x;
-      default:
-        throw new Error("unexpected link function id  " + this);
-      }
-    }
-
-    public final double linkDeriv(double x){
-      switch(this){
-        case identity:
-          return 1;
-        case logit:
-          if( x == 1 || x == 0 ) return MAX_SQRT;
-          return 1 / (x * (1 - x));
-        case log:
-          return (x == 0)?MAX_SQRT:1/x;
-        case inverse:
-          return -1/(x*x);
-        default:
-          throw new Error("unexpected link function id  " + this);
-      }
-    }
-  }
-
-
-  // helper function
-  static final double y_log_y(double y, double mu){
-    mu = Math.max(Double.MIN_NORMAL, mu);
-    return (y != 0) ? (y * Math.log(y/mu)) : 0;
-  }
+//  public enum CaseMode {
+//    none("n/a"),
+//    lt("<"),
+//    gt(">"),
+//    lte("<="),
+//    gte(">="),
+//    eq("=");
+//    final String _str;
+//
+//    CaseMode(String str){
+//      _str = str;
+//    }
+//    public String toString(){
+//      return _str;
+//    }
+//
+//    public String exp(double v){
+//      switch(this){
+//      case none:
+//        return "n/a";
+//      default:
+//        return "x" + _str + v;
+//      }
+//    }
+//
+//    public final boolean isCase(double x, double y){
+//      switch(this){
+//      case lt:
+//        return x < y;
+//      case gt:
+//        return x > y;
+//      case lte:
+//        return x <= y;
+//      case gte:
+//        return x >= y;
+//      case eq:
+//        return x == y;
+//      default:
+//        assert false;
+//        return false;
+//      }
+//    }
+//  }
+//  public static enum Link {
+//    familyDefault(0),
+//    identity(0),
+//    logit(0),
+//    log(0),
+////    probit(0),
+////    cauchit(0),
+////    cloglog(0),
+////    sqrt(0),
+//    inverse(1.0),
+////    oneOverMu2(0);
+//    ;
+//    public final double defaultBeta;
+//
+//    Link(double b){defaultBeta = b;}
+//
+//    public final double link(double x){
+//      switch(this){
+//      case identity:
+//        return x;
+//      case logit:
+//        assert 0 <= x && x <= 1;
+//        return Math.log(x/(1 - x));
+//      case log:
+//        return Math.log(x);
+//      case inverse:
+//        return 1/x;
+//      default:
+//        throw new Error("unsupported link function id  " + this);
+//      }
+//    }
+//
+//    public final double linkInv(double x){
+//      switch(this){
+//      case identity:
+//        return x;
+//      case logit:
+//        return 1.0 / (Math.exp(-x) + 1.0);
+//      case log:
+//        return Math.exp(x);
+//      case inverse:
+//        return 1/x;
+//      default:
+//        throw new Error("unexpected link function id  " + this);
+//      }
+//    }
+//
+//    public final double linkDeriv(double x){
+//      switch(this){
+//        case identity:
+//          return 1;
+//        case logit:
+//          if( x == 1 || x == 0 ) return MAX_SQRT;
+//          return 1 / (x * (1 - x));
+//        case log:
+//          return (x == 0)?MAX_SQRT:1/x;
+//        case inverse:
+//          return -1/(x*x);
+//        default:
+//          throw new Error("unexpected link function id  " + this);
+//      }
+//    }
+//  }
+//
+//
+//  // helper function
+//  static final double y_log_y(double y, double mu){
+//    mu = Math.max(Double.MIN_NORMAL, mu);
+//    return (y != 0) ? (y * Math.log(y/mu)) : 0;
+//  }
 
   // supported families
-  public static enum Family {
-    gaussian(Link.identity,null),
-    binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
-    poisson(Link.log,null);
-    //gamma(Link.inverse,null);
-    public final Link defaultLink;
-    public final double [] defaultArgs;
-    Family(Link l, double [] d){defaultLink = l; defaultArgs = d;}
-
-    public double aic(double dev, long nobs, int betaLen){
-      switch(this){
-      case gaussian:
-        return nobs *(Math.log(dev/nobs * 2 *Math.PI)+1)+2 + 2*betaLen;
-      case binomial:
-        return 2*betaLen + dev;
-      case poisson:
-        return 2*betaLen + dev;
-//      case gamma:
-//        return Double.NaN;
-      default:
-        throw new Error("unknown family Id " + this);
-      }
-    }
-    public double variance(double mu){
-      switch(this){
-      case gaussian:
-        return 1;
-      case binomial:
-        assert 0 <= mu && mu <= 1:"unexpected mu:" + mu;
-        return mu*(1-mu);
-      case poisson:
-        return mu;
-//      case gamma:
-//        return mu*mu;
-      default:
-        throw new Error("unknown family Id " + this);
-      }
-    }
-
-    /**
-     * Per family deviance computation.
-     *
-     * @param family
-     * @param yr
-     * @param ym
-     * @return
-     */
-    public double deviance(double yr, double ym){
-      switch(this){
-      case gaussian:
-        return (yr - ym)*(yr - ym);
-      case binomial:
-        return 2*((y_log_y(yr, ym)) + y_log_y(1-yr, 1-ym));
-        //return -2*(yr * ym - Math.log(1 + Math.exp(ym)));
-      case poisson:
-        //ym = Math.exp(ym);
-        if(yr == 0)return 2*ym;
-        return 2*((yr * Math.log(yr/ym)) - (yr - ym));
-//      case gamma:
-//        if(yr == 0)return -2;
-//        return -2*(Math.log(yr/ym) - (yr - ym)/ym);
-      default:
-        throw new Error("unknown family Id " + this);
-      }
-    }
-  }
+//  public static enum Family {
+//    gaussian(Link.identity,null),
+//    binomial(Link.logit,new double[]{Double.NaN,1.0,0.5}),
+//    poisson(Link.log,null);
+//    //gamma(Link.inverse,null);
+//    public final Link defaultLink;
+//    public final double [] defaultArgs;
+//    Family(Link l, double [] d){defaultLink = l; defaultArgs = d;}
+//
+//    public double aic(double dev, long nobs, int betaLen){
+//      switch(this){
+//      case gaussian:
+//        return nobs *(Math.log(dev/nobs * 2 *Math.PI)+1)+2 + 2*betaLen;
+//      case binomial:
+//        return 2*betaLen + dev;
+//      case poisson:
+//        return 2*betaLen + dev;
+////      case gamma:
+////        return Double.NaN;
+//      default:
+//        throw new Error("unknown family Id " + this);
+//      }
+//    }
+//    public double variance(double mu){
+//      switch(this){
+//      case gaussian:
+//        return 1;
+//      case binomial:
+//        assert 0 <= mu && mu <= 1:"unexpected mu:" + mu;
+//        return mu*(1-mu);
+//      case poisson:
+//        return mu;
+////      case gamma:
+////        return mu*mu;
+//      default:
+//        throw new Error("unknown family Id " + this);
+//      }
+//    }
+//
+//    /**
+//     * Per family deviance computation.
+//     *
+//     * @param family
+//     * @param yr
+//     * @param ym
+//     * @return
+//     */
+//    public double deviance(double yr, double ym){
+//      switch(this){
+//      case gaussian:
+//        return (yr - ym)*(yr - ym);
+//      case binomial:
+//        return 2*((y_log_y(yr, ym)) + y_log_y(1-yr, 1-ym));
+//        //return -2*(yr * ym - Math.log(1 + Math.exp(ym)));
+//      case poisson:
+//        //ym = Math.exp(ym);
+//        if(yr == 0)return 2*ym;
+//        return 2*((yr * Math.log(yr/ym)) - (yr - ym));
+////      case gamma:
+////        if(yr == 0)return -2;
+////        return -2*(Math.log(yr/ym) - (yr - ym)/ym);
+//      default:
+//        throw new Error("unknown family Id " + this);
+//      }
+//    }
+//  }
 
   public static final int FAMILY_ARGS_CASE = 0;
   public static final int FAMILY_ARGS_WEIGHT = 1;
@@ -227,7 +230,7 @@ public class GLMSolver {
     boolean _isDone;            // Model is "being worked on" or "is stable"
     public int _iterations;
     public long _time;
-    public LSMSolver _solver;
+    public ADMMSolver _solver;
     public String [] _colNames;
     int [] _colIds;
     int [] _colOffsets;
@@ -237,7 +240,7 @@ public class GLMSolver {
     double [] _normSub;
     double [] _normMul;
 
-    public GLMParams _glmParams;
+    public OldGLMParams _glmParams;
     public String [] _warnings;
     public GLMValidation [] _vals;
 
@@ -310,7 +313,7 @@ public class GLMSolver {
       _normSub = other._normSub;
     }
 
-    public GLMModel(ValueArray ary, int [] colIds, LSMSolver lsm, GLMParams params, Sampling s) {
+    public GLMModel(ValueArray ary, int [] colIds, ADMMSolver lsm, OldGLMParams params, Sampling s) {
       _dataset = ary._key;
       _beta = new double [colIds.length+1];
       ArrayList<Integer> validCols = new ArrayList<Integer>();
@@ -403,7 +406,6 @@ public class GLMSolver {
         gtask.invoke(_dataset);
         Matrix xx = gtask._gram.getXX();
         Matrix xy = gtask._gram.getXY();
-
         // Gram is broken?  Raise lambda penalty and try again
         if( gtask._gram.hasNaNsOrInfs() ){
           warns.add("Stopping at iteration " + _iterations + ". Gram has Infs or NaNs.");
@@ -557,7 +559,7 @@ public class GLMSolver {
     }
   }
 
-  public static class GLMParams extends Iced {
+  public static class OldGLMParams extends Iced {
     public Family _f = Family.gaussian;
     public Link _l;
     public double _betaEps;
@@ -581,7 +583,7 @@ public class GLMSolver {
     }
   }
 
-  GLMParams _glmParams;
+  OldGLMParams _glmParams;
 
   public enum ErrMetric {
     MAXC,
@@ -647,29 +649,31 @@ public class GLMSolver {
       }
       // set the intercept
       x[x.length-1] = 1.0; // constant (Intercept)
-      double gmu = 0;
-      for(int i = 0; i < x.length; ++i) {
-        gmu += x[i] * _beta[indexes[i]];
-      }
-      // get the inverse to get estimate of p(Y=1|X) according to previous model
-      double mu = _link.linkInv(gmu);
-      double dgmu = _link.linkDeriv(mu);
-      y = gmu + (y - mu) * dgmu; // z = y approx by Taylor
-                                               // expansion at the point of our
-                                               // estimate (mu), done to avoid
-                                               // log(0),log(1)
-      // Step 2
-      double vary = _family.variance(mu); // variance of y according to our model
+      if(_family != Family.gaussian){
+        double gmu = 0;
+        for(int i = 0; i < x.length; ++i) {
+          gmu += x[i] * _beta[indexes[i]];
+        }
+        // get the inverse to get estimate of p(Y=1|X) according to previous model
+        double mu = _link.linkInv(gmu);
+        double dgmu = _link.linkDeriv(mu);
+        y = gmu + (y - mu) * dgmu; // z = y approx by Taylor
+                                                 // expansion at the point of our
+                                                 // estimate (mu), done to avoid
+                                                 // log(0),log(1)
+        // Step 2
+        double vary = _family.variance(mu); // variance of y according to our model
 
-      // compute the weights (inverse of variance of z)
-      double var = dgmu * dgmu * vary;
-      // Apply the weight. We want each data point to have weight of inverse of
-      // the variance of y at this point.
-      // Since we compute x'x, we take sqrt(w) and apply it to both x and y
-      // (we also compute X*y)
-      w = Math.sqrt(w/var);
-      for(int i = 0; i < x.length; ++i)
-        x[i] *= w;
+        // compute the weights (inverse of variance of z)
+        double var = dgmu * dgmu * vary;
+        // Apply the weight. We want each data point to have weight of inverse of
+        // the variance of y at this point.
+        // Since we compute x'x, we take sqrt(w) and apply it to both x and y
+        // (we also compute X*y)
+        w = Math.sqrt(w/var);
+        for(int i = 0; i < x.length; ++i)
+          x[i] *= w;
+      }
       _gram.addRow(x, indexes, y * w);
     }
 

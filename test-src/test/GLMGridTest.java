@@ -1,5 +1,7 @@
 package test;
 
+import hex.DGLM.Family;
+import hex.DLSM.ADMMSolver;
 import hex.*;
 import hex.GLMSolver.GLMModel;
 
@@ -13,9 +15,9 @@ import water.*;
 public class GLMGridTest extends TestUtil {
 
   static final double [] thresholds = new double [] {0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9};
-  private static GLMSolver.GLMModel compute_glm_score( ValueArray va, int[] cols, GLMSolver.GLMParams glmp, LSMSolver lsms, double thresh, String msg ) {
+  private static GLMSolver.GLMModel compute_glm_score( ValueArray va, int[] cols, GLMSolver.OldGLMParams glmp, ADMMSolver lsms, double thresh, String msg ) {
     // Binomial (logistic) GLM solver
-    glmp._f = GLMSolver.Family.binomial;
+    glmp._f = Family.binomial;
     glmp._l = glmp._f.defaultLink; // logit
     //glmp._familyArgs = glmp._f.defaultArgs; // no case/weight.  default 0.5 thresh
     glmp._betaEps = 0.000001;
@@ -76,9 +78,9 @@ public class GLMGridTest extends TestUtil {
       k1 = loadAndParseKey("h.hex","smalldata/hhp_107_01.data.gz"); final int class_col = 106;
       ValueArray va = ValueArray.value(DKV.get(k1));
       // Default normalization solver
-      LSMSolver lsms = LSMSolver.makeSolver(LSMSolver.DEFAULT_LAMBDA, 0.5);
+      ADMMSolver lsms = ADMMSolver.makeSolver(ADMMSolver.DEFAULT_LAMBDA, 0.5);
       // Binomial (logistic) GLM solver
-      GLMSolver.GLMParams glmp = new GLMSolver.GLMParams();
+      GLMSolver.OldGLMParams glmp = new GLMSolver.OldGLMParams();
 
       // Initial columns: all, with the class moved to the end
       int[] cols = new int[va._cols.length];
