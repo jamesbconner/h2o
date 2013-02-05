@@ -37,6 +37,7 @@ public abstract class DGLM {
     public double _caseVal;
     public double _caseWeight = 1.0;
     public CaseMode _caseMode = CaseMode.none;
+    public boolean _reweightGram = true;
 
     public GLMParams(Family family){this(family,family.defaultLink);}
 
@@ -372,12 +373,14 @@ public abstract class DGLM {
     double      _yy;
     long        _nobs;
     final int   _N;
-    public Gram(int N){
+    public Gram(int N, boolean computeXX){
       _N = N;
-      _xx = new double[N][];
       _xy = MemoryManager.malloc8d(N);
-      for(int i = 0; i < N; ++i)
-        _xx[i] = MemoryManager.malloc8d(i+1);
+      if (computeXX) {
+        _xx = new double[N][];
+        for(int i = 0; i < N; ++i)
+          _xx[i] = MemoryManager.malloc8d(i+1);
+      }
     }
     public double [][] getXX(){
       double [][] xx = new double[_N][_N];
@@ -397,7 +400,7 @@ public abstract class DGLM {
       for(int i = 0; i < _N; ++i){
         _xy[i] += grm._xy[i];
         final int n = _xx[i].length;
-        for(int j = 0; j < n; ++j)
+        if(_xx != null)for(int j = 0; j < n; ++j)
           _xx[i][j] += grm._xx[i][j];
       }
     }
@@ -407,7 +410,7 @@ public abstract class DGLM {
   public static class GramMatrixFactory extends RowAlgFactory<Gram>{
     final int N;
     public GramMatrixFactory(int n){N = n;}
-    public RowAlg<Gram> createInstance(){return new GramMatrixFunc(N, new Gram(N));}
+    public RowAlg<Gram> createInstance(){return new GramMatrixFunc(N, new Gram(N,true));}
   }
 
   /**
@@ -428,28 +431,30 @@ public abstract class DGLM {
 
     @Override
     public GramMatrixFunc clone(){
-      return new GramMatrixFunc(N,new Gram(N));
+      return new GramMatrixFunc(N,new Gram(N,true));
     }
 
-    @Override
-    public void processRow(double[] x, int dense, int[] indexes) {
-      double w = 1;
-      double y = w*x[dense-1];
-      _gram._yy += 0.5*y*y;
+    protected final void processRow(double[] x, int dense, int[] indexes, double y, double w){
+      _gram._yy += 0.5*w*y*y;
       ++_gram._nobs;
       x[x.length-1] = 1.0; // intercept
       for(int i = 0; i < dense; ++i){
         for(int j = 0; j <= i; ++j)
           _gram._xx[i][j] += w*x[i]*x[j];
-        _gram._xy[i] += y*x[i];
+        _gram._xy[i] += w*y*x[i];
       }
       for(int i = 0; i < indexes.length; ++i){
         for(int j = 0; j < dense; ++j)
           _gram._xx[indexes[i]][j] += w*x[dense+i]*x[j];
         for(int j = 0; j <= i; ++j)
           _gram._xx[indexes[i]][indexes[j]] += w*x[dense+i]*x[dense+j];
-        _gram._xy[indexes[i]] += y*x[dense+i];
+        _gram._xy[indexes[i]] += w*y*x[dense+i];
       }
+    }
+    @Override
+    public void processRow(double[] x, int dense, int[] indexes) {
+      double y = x[dense-1];
+      processRow(x, dense, indexes, y,1);
     }
 
     @Override
@@ -503,11 +508,11 @@ public abstract class DGLM {
         beta = newBeta;
         newBeta = b;
         GLMZUpdateFactory zupdate = new GLMZUpdateFactory(glmp,beta);
-        ZUpdate zup = zupdate.apply(data);
-        double [] z = zup._Xz;
+        Gram zup = zupdate.apply(data);
+        double [] z = zup._xy;
         for(int i = 0; i < z.length; ++i)
           z[i] *= nobsInv;
-        solver.solve(xx, zup._Xz, zup._zz * nobsInv, newBeta);
+        solver.solve(xx, zup._xy, zup._yy * nobsInv, newBeta);
       } while(betaDiff(beta,newBeta) > glmp._betaEps && ++iter != 50);
       if(iter == 50)System.err.println("did not converge!, last betaDiff = " + betaDiff(beta, newBeta));
     }
@@ -526,40 +531,50 @@ public abstract class DGLM {
   }
 
   public static class ZUpdate extends Iced {
-    public double [] _Xz;
-    public double _zz;
+    public double [][] _XX;
+    public double []   _Xz;
+    public double      _zz;
+
 
     public void add(ZUpdate other){
       _zz += other._zz;
-      for(int i = 0; i < _Xz.length; ++i)
+      for(int i = 0; i < _Xz.length; ++i){
         _Xz[i] += other._Xz[i];
+        if(_XX != null) for(int j = 0; j < _XX[i].length;++j)
+          _XX[i][j] += other._XX[i][j];
+      }
     }
   }
-  public static class GLMZUpdateFactory extends RowAlgFactory<ZUpdate>{
+  public static class GLMZUpdateFactory extends GramMatrixFactory{
     final GLMParams _glmp;
     final double [] _beta;
 
     public GLMZUpdateFactory(GLMParams glmp, double [] beta){
+      super(beta.length);
       _glmp = glmp;
       _beta = beta;
     }
 
     @Override
-    public RowAlg<ZUpdate> createInstance() {
+    public RowAlg<Gram> createInstance() {
       return new GLMZUpdate(this);
     }
 
-    private static class GLMZUpdate extends RowAlg<ZUpdate> {
+    private static class GLMZUpdate extends GramMatrixFunc {
       final transient GLMZUpdateFactory _factory;
-      ZUpdate _res;
+      Gram _res;
       final double _xw;
+      final boolean _reweightX;
 
       public GLMZUpdate(GLMZUpdateFactory f){
+        super(f.N);
         _factory = f;
-        _res = new ZUpdate();
-        _res._Xz = MemoryManager.malloc8d(_factory._beta.length);
-        _xw = Math.sqrt(_factory._glmp._family.weightApproximation());
+        _reweightX = f._glmp._reweightGram;
+        _res = new Gram(_factory._beta.length,_reweightX);
+        if(!_reweightX)_xw = Math.sqrt(_factory._glmp._family.weightApproximation());
+        else _xw = 0;
       }
+
 
       @Override
       public void processRow(double[] x, int nDense, int[] indexes) {
@@ -575,11 +590,16 @@ public abstract class DGLM {
         double p = _factory._glmp._link.linkInv(mu);
         double var = _factory._glmp._family.variance(p);
         double z = mu + (yr-p)/var;
-        _res._zz += 0.5*var*z*z;
-        for(int i = 0; i < nDense; ++i)
-          _res._Xz[i] += z*Math.sqrt(var)*x[i]*_xw;
-        for(int i = 0; i < indexes.length; ++i)
-          _res._Xz[indexes[i]] += z*Math.sqrt(var)*x[nDense+i]*_xw;
+        if(_reweightX)
+          super.processRow(x, nDense, indexes, z, var);
+        else {
+          double w = Math.sqrt(var)*_xw;
+          _res._yy += 0.5*var*z*z;
+          for(int i = 0; i < nDense; ++i)
+            _res._xy[i] += w*z*x[i];
+          for(int i = 0; i < indexes.length; ++i)
+            _res._xy[indexes[i]] += w*z*x[nDense+i];
+        }
       }
       @Override
       public void reduce(RowAlg rwa) {
@@ -588,7 +608,7 @@ public abstract class DGLM {
         else _res.add(t._res);
       }
       @Override
-      protected ZUpdate res() {
+      protected Gram res() {
         return _res;
       }
     }
