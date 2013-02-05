@@ -183,6 +183,21 @@ public abstract class DGLM {
     public final double [] defaultArgs;
     Family(Link l, double [] d){defaultLink = l; defaultArgs = d;}
 
+    public double weightApproximation(){
+      switch(this){
+      case gaussian:
+        return 1;
+      case binomial:
+        return 0.25;
+      case poisson:
+        throw new Error("unimplmented");
+//      case gamma:
+//        return Double.NaN;
+      default:
+        throw new Error("unknown family Id " + this);
+      }
+    }
+
     public double aic(double dev, long nobs, long dof){
       int betaLen = (int)(nobs - dof);
       switch(this){
@@ -215,28 +230,29 @@ public abstract class DGLM {
 
     }
 
-    public double z(double yr, double mu, Link l){
-      switch(this){
-      case gaussian:
-        assert(false); // no need for this with gaussian!
-        return yr - mu;
-      case binomial:
-        assert 0 <= yr && yr <= 1;
-        double p = l.linkInv(mu);
-        assert 0 <= p && p <= 1;
-        double w = p*(1-p);
-        if(p < 1e-5){
-          p = 0;
-          w = 1e-5;
-        } else if(p > (1-1e-5)){
-          p = 1;
-          w = 1e-5;
-        }
-        return mu + (yr - p)/w;
-      default:
-        throw new Error("unimplemented");
-      }
-    }
+//    public double weight(double yr, double mu, Link l){
+//    public double z(double yr, double mu, Link l){
+//      switch(this){
+//      case gaussian:
+//        assert(false); // no need for this with gaussian!
+//        return yr - mu;
+//      case binomial:
+//        assert 0 <= yr && yr <= 1;
+//        double p = l.linkInv(mu);
+//        assert 0 <= p && p <= 1;
+//        double w = p*(1-p);
+//        if(p < 1e-5){
+//          p = 0;
+//          w = 1e-5;
+//        } else if(p > (1-1e-5)){
+//          p = 1;
+//          w = 1e-5;
+//        }
+//        return Math.sqrt(w)*(mu + (yr - p)/w);
+//      default:
+//        throw new Error("unimplemented");
+//      }
+//    }
 
 
     /**
@@ -465,13 +481,22 @@ public abstract class DGLM {
     ArrayList<String> warns = new ArrayList<String>();
     boolean converged = false;
     Gram gram = gramF.apply(data,s);
+    double [][] xx = gram.getXX();
+    double nobsInv = 1.0/gram._nobs;
+    double weight = glmp._family.weightApproximation();
+
+    double [] xy = gram.getXY();
+    // apply weight
+    double w = weight*nobsInv;
+    for(int i = 0; i < xx.length; ++i){
+      xy[i] *= w;
+      for(int j = 0; j < xx.length; ++j)
+        xx[i][j] *= w;
+    }
+    double yy = gram._yy*w;
+    solver.solve(xx, xy, yy, newBeta);
     if(glmp._family != Family.gaussian) { // IRLSM
-      double [][] xx = gram.getXX();
-      for(int i = 0; i < xx.length; ++i){
-        for(int j = 0; j < xx.length; ++j)
-          xx[i][j] *= 0.25; // apply weight approximated by 1/4
-      }
-      double [] beta = new double [data.expandedVectorSize()];
+      double [] beta = new double [newBeta.length];
       int iter = 0;
       do{
         double [] b = beta;
@@ -480,15 +505,12 @@ public abstract class DGLM {
         GLMZUpdateFactory zupdate = new GLMZUpdateFactory(glmp,beta);
         ZUpdate zup = zupdate.apply(data);
         double [] z = zup._Xz;
-        double zz = zup._zz;
         for(int i = 0; i < z.length; ++i)
-          z[i] *= 0.25;
-        zz *= 0.25;
-        solver.solve(xx, z, zz, newBeta, gram._nobs);
+          z[i] *= nobsInv;
+        solver.solve(xx, zup._Xz, zup._zz * nobsInv, newBeta);
       } while(betaDiff(beta,newBeta) > glmp._betaEps && ++iter != 50);
       if(iter == 50)System.err.println("did not converge!, last betaDiff = " + betaDiff(beta, newBeta));
-    } else  // gaussian can be solved directly
-      solver.solve(gram.getXX(), gram.getXY(), gram._yy, newBeta, gram._nobs);
+    }
     String [] warnings = new String[warns.size()];
     warns.toArray(warnings);
     if(data._standardize){
@@ -530,12 +552,13 @@ public abstract class DGLM {
     private static class GLMZUpdate extends RowAlg<ZUpdate> {
       final transient GLMZUpdateFactory _factory;
       ZUpdate _res;
-
+      final double _xw;
 
       public GLMZUpdate(GLMZUpdateFactory f){
         _factory = f;
         _res = new ZUpdate();
         _res._Xz = MemoryManager.malloc8d(_factory._beta.length);
+        _xw = Math.sqrt(_factory._glmp._family.weightApproximation());
       }
 
       @Override
@@ -549,12 +572,14 @@ public abstract class DGLM {
           mu += _factory._beta[i]*x[i];
         for(int i = 0; i < indexes.length; ++i)
           mu += _factory._beta[indexes[i]]*x[nDense+i];
-        double z = _factory._glmp._family.z(yr, mu, _factory._glmp._link);
-        _res._zz += 0.5*z*z;
+        double p = _factory._glmp._link.linkInv(mu);
+        double var = _factory._glmp._family.variance(p);
+        double z = mu + (yr-p)/var;
+        _res._zz += 0.5*var*z*z;
         for(int i = 0; i < nDense; ++i)
-          _res._Xz[i] += z*x[i];
+          _res._Xz[i] += z*Math.sqrt(var)*x[i]*_xw;
         for(int i = 0; i < indexes.length; ++i)
-          _res._Xz[indexes[i]] += z*x[nDense+i];
+          _res._Xz[indexes[i]] += z*Math.sqrt(var)*x[nDense+i]*_xw;
       }
       @Override
       public void reduce(RowAlg rwa) {

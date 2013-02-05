@@ -26,7 +26,7 @@ public class DLSM {
      *  @return true if converged
      *
      */
-    public abstract boolean solve(double [][] xx, double [] xy, double yy,  double [] newBeta, long nobs);
+    public abstract boolean solve(double [][] xx, double [] xy, double yy,  double [] newBeta);
     public abstract JsonObject toJson();
 
     public static class LSMSolverException extends RuntimeException {
@@ -227,7 +227,7 @@ public class DLSM {
     }
 
     @Override
-    public boolean solve(double[][] xx, double[] xy, double yy, double[] newBeta, long nobs) {
+    public boolean solve(double[][] xx, double[] xy, double yy, double[] newBeta) {
       double [] beta = solve(new Matrix(xx), new Matrix(xy,xy.length));
       // not really nice solution, but we get new Vector from Jama
       // and I want to keep option of using user-supplied beta (to avoid allocation)
@@ -280,7 +280,7 @@ public class DLSM {
      * @param beta: b (vector of coefficients)
      * @return 0.5*(y - X*b)'*(y - X*b)
      */
-    private double g_beta(double[][] xx, double[] xy, double yy, double[] beta, double nobsInv) {
+    private double g_beta(double[][] xx, double[] xy, double yy, double[] beta) {
       final int n = xy.length;
       double res = yy;
       for( int i = 0; i < n; ++i ) {
@@ -289,10 +289,8 @@ public class DLSM {
           x += xx[i][j] * beta[j];
         res += (0.5*x + xy[i]) * beta[i];
       }
-      if(res < 0){
-        System.out.println("haha");
-      }
-      return res * nobsInv;
+      assert res >= 0:"res = " + res;
+      return res;
     }
 
     /*
@@ -352,25 +350,25 @@ public class DLSM {
     /**
      * @param xx: gram matrix. gaussian: X'X, binomial:(1/4)X'X
      * @param xy: -X'y (LSM) l or -(1/4)X'(XB + (y-p)/(p*1-p))(IRLSM
-     * @param yy: 0.5*y'*y gaussian, 0.125*z'*z IRLSM
+     * @param yy: 0.5*y'*y gaussian, 0.25*z'*z IRLSM
      * @param beta: previous vector of coefficients, will be modified/destroyed
      * @param newBeta: resulting vector of coefficients
      * @return true if converged
      */
-    public boolean solve(double[][] xx, double[] xy, double yy, double[] newBeta, long nobs) {
+    @Override
+    public boolean solve(double[][] xx, double[] xy, double yy, double[] newBeta) {
       int i = 0;
-      double nobsInv = 1.0/nobs;
       _converged = false;
       _objVal = Double.MAX_VALUE;
       mul(xy, -1, xy);
       while( !_converged && _iterations != MAX_ITER ) {
-        double gbeta = g_beta(xx, xy, yy, _beta, nobsInv);
+        double gbeta = g_beta(xx, xy, yy, _beta);
         // use backtracking to find proper step size t
         double t = _t;
         for( int k = 0; k < 1000; ++k ) {
-          g_beta_gradient(xx, xy, t*nobsInv);
+          g_beta_gradient(xx, xy, t);
           newBeta = beta_update(newBeta, t);
-          if( g_beta(xx, xy, yy, newBeta, nobsInv) <= backtrack_cond_rs(gbeta, newBeta, t) ) {
+          if( g_beta(xx, xy, yy, newBeta) <= backtrack_cond_rs(gbeta, newBeta, t) ) {
             if( _t > t ) {
               _t = t;
 //              System.out.println("t found after " + (k + 1) + " iterations, t = " + _t);
@@ -384,12 +382,13 @@ public class DLSM {
           }
         }
         // compare objective function values between the runs
-        double newObjVal = g_beta(xx, xy, yy, newBeta, nobsInv) + _kappa * l1norm(newBeta);
+        double newObjVal = g_beta(xx, xy, yy, newBeta) + _kappa * l1norm(newBeta);
         System.arraycopy(newBeta, 0, _beta, 0, N);
         _converged = (1 - newObjVal / _objVal) <= EPS;
         _objVal = newObjVal;
         _iterations = ++i;
       }
+      // return xy back to its original state
       mul(xy, -1, xy);
       return _converged;
     }
