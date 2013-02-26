@@ -57,4 +57,5 @@ public abstract class DTask<T> extends CountedCompleter implements Freezable {
   @Override public AutoBuffer write(AutoBuffer bb) { throw barf(); }
   @Override public <F extends Freezable> F read(AutoBuffer bb) { throw barf(); }
   @Override public <F extends Freezable> F newInstance() { throw barf(); }
+  @Override public int frozenType() { throw barf(); }
 }

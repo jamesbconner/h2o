@@ -1,11 +1,11 @@
 package water.util;
 
-import H2OInit.Boot;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import water.Boot;
 import water.Log;
 
 /**

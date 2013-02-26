@@ -118,14 +118,8 @@ public abstract class PersistIce {
     }
   }
 
-  private static byte decodeType(File f) {
-    String ext = f.getName();
-    ext = ext.substring(ext.lastIndexOf('.')+1);
-    return (byte)ext.charAt(0);
-  }
-
   private static File encodeKeyToFile(Value v) {
-    return encodeKeyToFile(v._key,(byte)(v._isArray!=0?'A':'V'));
+    return encodeKeyToFile(v._key,(byte)(v.isArray()?'A':'V'));
   }
   private static File encodeKeyToFile(Key k, byte type) {
     // check if we are system key
@@ -234,7 +228,7 @@ public abstract class PersistIce {
     assert !v.isPersisted();   // Upper layers already cleared out
     File f = encodeKeyToFile(v);
     f.delete();
-    if( v._isArray != 0 ) { // Also nuke directory if the top-level ValueArray dies
+    if( v.isArray() ) { // Also nuke directory if the top-level ValueArray dies
       f = new File(iceRoot,getDirectoryForKey(v._key));
       f.delete();
     }

@@ -5,9 +5,7 @@ import hex.rf.Tree.StatType;
 import java.util.*;
 
 import jsr166y.CountedCompleter;
-
 import water.*;
-import water.Jobs.Job;
 import water.ValueArray.Column;
 import water.Timer;
 import water.util.Utils;
@@ -95,7 +93,8 @@ public final class DRF extends water.DRemoteTask {
                                new Key[0], ary._cols.length, sample, numSplitFeatures, ntrees);
     boolean ok = false;
     try {
-      drf._job = Jobs.start("RandomForest", modelKey);
+      drf._job = new Job("RandomForest", modelKey);
+      drf._job.start();
 
       // Fill in args into DRF
       drf._ntrees = ntrees;
@@ -146,7 +145,7 @@ public final class DRF extends water.DRemoteTask {
       ok = true;
     } finally {
       if(!ok)
-        Jobs.remove(drf._job._key);
+        drf._job.remove();
     }
     return drf;
   }
@@ -191,7 +190,7 @@ public final class DRF extends water.DRemoteTask {
   @Override
   public void onCompletion(CountedCompleter caller) {
     if(_job != null)
-      Jobs.remove(_job._key);
+      _job.remove();
   }
 
   /** Unless otherwise specified each split looks at sqrt(#features). */

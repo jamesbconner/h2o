@@ -478,31 +478,33 @@ public final class AutoBuffer {
   public AutoBuffer put8d(double d) { putSp(8).putDouble(d); return this; }
 
   public AutoBuffer put(Freezable f) {
-    if( f == null ) return put2((short)-1);
-    put2((short)TypeMap.MAP.getId(f));
+    if( f == null ) return put2((char) Types.NULL);
+    put2((char) f.frozenType());
     return f.write(this);
   }
-  public AutoBuffer putA(Freezable[] fs)    {
+  public AutoBuffer putA(Freezable[] fs) {
     if( fs == null ) return put4(-1);
     put4(fs.length);
     for( Freezable f : fs ) put(f);
     return this;
   }
-  public AutoBuffer putAA(Freezable[][] fs)    {
+  public AutoBuffer putAA(Freezable[][] fs) {
     if( fs == null ) return put4(-1);
     put4(fs.length);
     for( Freezable[] f : fs ) putA(f);
     return this;
   }
 
+  public <T extends Freezable> T get() {
+    return get(null);
+  }
   public <T extends Freezable> T get(Class<T> t) {
-    short id = (short)get2();
-    if( id == -1 ) return null;
-    Freezable f = TypeMap.MAP.getType(id);
-    assert t.isInstance(f);
+    int id = get2();
+    if( id == Types.NULL ) return null;
+    Freezable f = Types.newInstance(id);
+    assert t == null || t.isInstance(f);
     return f.read(this);
   }
-
   public <T extends Freezable> T[] getA(Class<T> tc) {
     int len = get4(); if( len == -1 ) return null;
     T[] ts = (T[]) Array.newInstance(tc, len);

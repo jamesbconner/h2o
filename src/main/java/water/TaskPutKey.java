@@ -20,6 +20,8 @@ public class TaskPutKey extends DTask<TaskPutKey> {
   static void invalidate( H2ONode h2o, Key key, Futures fs ) { put(h2o,key,null,fs); }
 
   private TaskPutKey( Key key, Value val ) { _key = key; _xval = _val = val; }
+  TaskPutKey() {}
+
   public TaskPutKey invoke( H2ONode sender ) {
     assert _key.home() || _val==null; // Only PUT to home for keys, or remote invalidation from home
     // Initialize Value for having a single known replica (the sender)

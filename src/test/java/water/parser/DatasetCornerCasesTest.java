@@ -8,7 +8,6 @@ import hex.rf.Tree.StatType;
 import org.junit.Test;
 import water.*;
 import water.parser.ParseDataset;
-import water.util.TestUtil;
 
 public class DatasetCornerCasesTest extends TestUtil {
 

@@ -424,7 +424,6 @@ public abstract class Paxos {
   }
 
   static void changeLeader( H2ONode newLeader ) {
-    TypeMap.MAP.changeLeader();
     LEADER = newLeader;
   }
 

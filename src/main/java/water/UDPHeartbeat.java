@@ -1,6 +1,5 @@
 package water;
 
-import H2OInit.Boot;
 
 /**
  * A UDP Heartbeat packet.

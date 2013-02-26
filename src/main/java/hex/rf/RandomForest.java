@@ -8,7 +8,6 @@ import java.util.*;
 
 import water.*;
 import water.Timer;
-import water.util.TestUtil;
 import water.util.Utils;
 
 /**

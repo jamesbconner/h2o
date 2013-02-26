@@ -2,7 +2,6 @@ package water.api;
 
 import jsr166y.CountedCompleter;
 import water.*;
-import water.Jobs.Job;
 import water.util.RString;
 
 import com.google.gson.JsonObject;
@@ -43,16 +42,17 @@ public class KMeans extends Request {
 
         @Override
         public boolean onExceptionalCompletion(Throwable ex, CountedCompleter caller) {
+          // TODO set job.error
           ex.printStackTrace();
           return true;
         }
       });
 
       JsonObject response = new JsonObject();
-      response.addProperty(JOB, job._key.toString());
+      response.addProperty(JOB, job.self().toString());
       response.addProperty(DEST_KEY, dest.toString());
 
-      Response r = Progress.redirect(response, job._key, dest);
+      Response r = Progress.redirect(response, job.self(), dest);
       r.setBuilder(DEST_KEY, new KeyElementBuilder());
       return r;
     } catch( IllegalArgumentException e ) {
