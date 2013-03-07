@@ -15,11 +15,15 @@ paramsTrainRF = {
             'out_of_bag_error_estimate': 1, 
             'exclusive_split_limit': 0,
             'timeoutSecs': 14800,
+            'response_variable': 4,
+            'header' : 1
             }
 
 # RF test parameters
 paramsTestRF = {
             'timeoutSecs': 14800,
+            'response_variable': 4,
+            'header': 1,
         }
 
 class Basic(unittest.TestCase):

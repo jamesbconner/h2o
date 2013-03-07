@@ -100,10 +100,11 @@ def trainRF(trainParseKey, **kwargs):
 def scoreRF(scoreParseKey, trainResult, **kwargs):
     # Run validation on dataset
     rfModelKey  = trainResult['model_key']
+    dataKey     = scoreParseKey['destination_key']
     ntree       = trainResult['ntree']
-    
+
     start = time.time()
-    scoreResult = h2o_cmd.runRFView(modelKey=rfModelKey, parseKey=scoreParseKey, ntree=ntree, **kwargs)
+    scoreResult = h2o_cmd.runRFScore(modelKey=rfModelKey, dataKey=dataKey, ntree=ntree, **kwargs)
     rftime      = time.time()-start 
     h2o.verboseprint("RF score results: ", scoreResult)
     h2o.verboseprint("RF computation took {0} sec".format(rftime))

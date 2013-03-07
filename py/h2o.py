@@ -921,6 +921,25 @@ class H2O(object):
         verboseprint("\nrandom_forest result:", dump_json(a))
         return a
 
+    def random_forest_score(self, data_key, model_key, timeoutSecs=300, print_params=False, **kwargs):
+        params_dict = {
+            'data_key': data_key,
+            'model_key': model_key,
+            'out_of_bag_error_estimate': 0,
+            'class_weights': None,
+            'response_variable': None, 
+            }
+        browseAlso = kwargs.pop('browseAlso',False)
+        params_dict.update(kwargs)
+        # Directly call RFView - since model is ready and CM computation blocks => it shoudl return correct CM
+        a = self.__check_request(requests.get(
+            self.__url('RFView.json'),
+            timeout=timeoutSecs,
+            params=params_dict))
+
+        return a
+
+
     def random_forest_view(self, data_key, model_key, timeoutSecs=300, print_params=False, **kwargs):
         # UPDATE: only pass the minimal set of params to RFView. It should get the 
         # rest from the model. what about classWt? It can be different between RF and RFView?
