@@ -124,7 +124,7 @@ public class RF extends Request {
         response.addProperty(IGNORE, _ignore.originalValue());
       response.addProperty(OOBEE, _oobee.value());
 
-      return Response.redirect(response, RFView.class, response);
+      return RFView.redirect(response);
     } catch (IllegalArgumentException e) {
       return Response.error("Incorrect input data: "+e.getMessage());
     }

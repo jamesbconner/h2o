@@ -51,6 +51,10 @@ public class RFView extends /* Progress */ Request {
     return Response.redirect(fromPageResponse, RFView.class, destPageParams);
   }
 
+  public static Response redirect(JsonObject response) {
+    return Response.redirect(response, RFView.class, response);
+  }
+
   public static String link(Key k, String content) {
     return link(k, DATA_KEY, content);
   }

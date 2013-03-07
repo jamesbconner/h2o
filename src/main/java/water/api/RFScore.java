@@ -1,10 +1,7 @@
 package water.api;
 
-import hex.rf.Confusion;
 import hex.rf.RFModel;
-import water.Jobs;
 import water.Key;
-import water.Jobs.Job;
 import water.util.RString;
 
 import com.google.gson.JsonObject;
@@ -46,7 +43,6 @@ public class RFScore extends Request {
 
   @Override protected Response serve() {
     RFModel model = _modelKey.value();
-    double[] weights = _weights.value();
     JsonObject response = new JsonObject();
     response.addProperty(DATA_KEY, _dataKey.originalValue());
     response.addProperty(MODEL_KEY, _modelKey.originalValue());
@@ -55,9 +51,6 @@ public class RFScore extends Request {
     if (_weights.specified())
       response.addProperty(WEIGHTS, _weights.originalValue());
 
-    // RF scoring do not use RF oobee computation.
-    Confusion confusion = Confusion.make(model, _dataKey.value()._key, _classCol.value(), weights, false);
-    Job job = Jobs.start("Random forest scoring", confusion.keyFor());
-    return RFView.redirect(response, job._key, _modelKey.value()._selfKey);
+    return RFView.redirect(response);
   }
 }
